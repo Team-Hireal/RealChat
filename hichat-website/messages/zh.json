@@ -1,0 +1,162 @@
+{
+  "brandName": "真聊",
+  "nav": {
+    "features": "功能特性",
+    "workflows": "工作流程",
+    "howItWorks": "使用方法",
+    "docs": "文档",
+    "download": "下载"
+  },
+  "hero": {
+    "title": "让你的微信拥有超能力",
+    "subtitle": "智能分类、快速回复、掌控聊天——无需离开微信",
+    "downloadButton": "下载桌面助手",
+    "watchDemo": "观看演示",
+    "workflows": "个工作流",
+    "dailyBrief": "秒日报",
+    "lessReplies": "减少遗漏回复"
+  },
+  "features": {
+    "title": "掌控微信所需的一切功能",
+    "subtitle": "真聊将 AI 驱动的工作流直接集成到您的微信体验中",
+    "smartTriage": {
+      "title": "智能分类",
+      "description": "根据重要性和紧急程度自动分类和优先处理您的消息"
+    },
+    "replyQueue": {
+      "title": "回复队列",
+      "description": "智能跟踪需要您关注的对话，永不错过回复"
+    },
+    "chatLabels": {
+      "title": "聊天标签",
+      "description": "使用智能标签整理联系人：朋友、家人、工作、投资人、潜在客户等"
+    },
+    "pinControl": {
+      "title": "置顶控制",
+      "description": "自动置顶需要回复的聊天，解决后自动取消置顶。轻松保持井然有序"
+    },
+    "autoReplies": {
+      "title": "自动回复",
+      "description": "安全的、基于权限的自动回复，带审批工作流。绝不会意外发送"
+    },
+    "searchRecall": {
+      "title": "搜索与回忆",
+      "description": "使用自然语言搜索即时找到任何对话。例如：他们在哪里发的地址？"
+    }
+  },
+  "featureCards": {
+    "title": "核心功能",
+    "subtitle": "掌握微信沟通所需的一切",
+    "commandConsole": {
+      "title": "自聊命令控制台",
+      "description": "通过在微信内与自己聊天来控制助手。使用文件传输助手作为命令控制台——无需学习新应用。"
+    },
+    "importantMessages": {
+      "title": "重要消息回顾",
+      "description": "即时回答「我错过了什么？」获取真正重要的消息智能摘要，按重要性和紧急程度过滤。"
+    },
+    "replyQueue": {
+      "title": "回复队列 + 置顶",
+      "description": "置顶需要回复的聊天，解决后取消置顶。自动跟踪您需要回复的人，并提供智能提醒。"
+    },
+    "autoReplies": {
+      "title": "带审批的自动回复",
+      "description": "具有权限模式的安全自动化。起草回复，一键审批，或仅对信任的联系人自动发送。"
+    },
+    "contactMemory": {
+      "title": "联系人记忆",
+      "description": "为每个联系人维护关系上下文和笔记。自动记住对话、偏好和重要细节。"
+    },
+    "dailyBrief": {
+      "title": "每日简报",
+      "description": "以谁联系了您、什么紧急以及 AI 建议的回复摘要开始新的一天。保持掌控而不感到不知所措。"
+    }
+  },
+  "workflows": {
+    "title": "12 个强大的工作流",
+    "subtitle": "通过智能工作流自动化您的微信体验",
+    "list": {
+      "smartTriage": "智能分类与归类",
+      "replyQueue": "回复队列管理",
+      "autoPin": "自动置顶/取消置顶重要聊天",
+      "aiReplies": "AI 智能回复建议",
+      "messageForwarding": "智能消息转发",
+      "scheduledMessages": "定时消息发送",
+      "autoResponder": "智能自动回复",
+      "contactManagement": "联系人整理",
+      "dailyDigest": "每日消息摘要",
+      "urgencyDetection": "紧急情况检测与提醒",
+      "groupChatFiltering": "群聊过滤",
+      "spamDetection": "垃圾信息与噪音过滤"
+    }
+  },
+  "howItWorks": {
+    "title": "使用方法",
+    "subtitle": "通过简单的 4 步流程，几分钟内即可开始使用",
+    "steps": {
+      "install": {
+        "title": "安装桌面助手",
+        "description": "在您的 Mac 或 Windows 电脑上下载并安装真聊桌面应用"
+      },
+      "connect": {
+        "title": "连接微信",
+        "description": "通过桌面助手安全地关联您的微信账号"
+      },
+      "configure": {
+        "title": "配置工作流",
+        "description": "通过自聊控制台设置您偏好的工作流和自动化规则"
+      },
+      "enjoy": {
+        "title": "享受智能微信",
+        "description": "体验由 AI 驱动的超强微信助手"
+      }
+    }
+  },
+  "architecture": {
+    "title": "隐私优先的混合 AI 架构",
+    "subtitle": "通过我们创新的混合方法确保您的数据安全",
+    "description": "真聊采用独特的混合 AI 架构，在您的设备上本地处理敏感数据，同时利用云端 AI 处理非敏感任务。这确保了最大程度的隐私保护，同时不影响智能性能。",
+    "localProcessing": {
+      "title": "本地处理",
+      "description": "消息分析和个人数据保留在您的设备上"
+    },
+    "cloudAI": {
+      "title": "云端 AI",
+      "description": "为非敏感操作提供高级 AI 功能"
+    },
+    "encrypted": {
+      "title": "端到端加密",
+      "description": "所有通信都经过加密和安全保护"
+    }
+  },
+  "cta": {
+    "title": "准备好让您的微信更强大了吗？",
+    "subtitle": "立即下载真聊，体验微信通讯的未来",
+    "downloadMac": "下载 Mac 版",
+    "downloadWindows": "下载 Windows 版",
+    "viewDocs": "查看文档",
+    "freeTrial": "免费试用 14 天 • 无需信用卡"
+  },
+  "footer": {
+    "tagline": "通过 AI 驱动的工作流让您的微信更强大",
+    "product": "产品",
+    "features": "功能特性",
+    "workflows": "工作流程",
+    "pricing": "价格",
+    "changelog": "更新日志",
+    "resources": "资源",
+    "documentation": "文档",
+    "apiReference": "API 参考",
+    "community": "社区",
+    "support": "支持",
+    "company": "公司",
+    "about": "关于",
+    "blog": "博客",
+    "careers": "招聘",
+    "contact": "联系我们",
+    "legal": "法律",
+    "privacy": "隐私政策",
+    "terms": "服务条款",
+    "allRightsReserved": "版权所有。"
+  }
+}

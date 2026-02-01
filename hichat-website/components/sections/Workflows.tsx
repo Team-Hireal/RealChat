@@ -1,81 +1,52 @@
 'use client';
 
-import { useState } from 'react';
 import { Check } from 'lucide-react';
+import { useLanguage } from '../LanguageProvider';
 
-const workflows = [
-  { id: 1, name: 'Pin Reply Queue', description: 'Automatically pin chats that need your reply' },
-  { id: 2, name: 'Unpin Resolved', description: 'Auto-unpin chats after you respond' },
-  { id: 3, name: 'Daily Brief', description: 'Morning digest of important messages' },
-  { id: 4, name: 'New Friend Auto Reply', description: 'Welcome new contacts with custom messages' },
-  { id: 5, name: 'Busy Mode', description: 'Auto-reply during work hours' },
-  { id: 6, name: 'Follow-up Reminders', description: 'Never forget to follow up' },
-  { id: 7, name: 'Link/File Collector', description: 'Organize shared links and files' },
-  { id: 8, name: 'Meeting Scheduling Draft', description: 'AI-powered meeting coordination' },
-  { id: 9, name: 'Lead Tagging', description: 'Automatically tag potential leads' },
-  { id: 10, name: 'Investor CRM Tags', description: 'Track investor relationships' },
-  { id: 11, name: 'Unknown Sender Filter', description: 'Smart filtering of unknown contacts' },
-  { id: 12, name: 'Weekly Recap', description: 'Weekly summary of conversations' },
-  { id: 13, name: 'Export Notes', description: 'Local backup of your notes' }
+const workflowKeys = [
+  'smartTriage',
+  'replyQueue',
+  'autoPin',
+  'aiReplies',
+  'messageForwarding',
+  'scheduledMessages',
+  'autoResponder',
+  'contactManagement',
+  'dailyDigest',
+  'urgencyDetection',
+  'groupChatFiltering',
+  'spamDetection'
 ];
 
 export default function Workflows() {
-  const [selectedWorkflow, setSelectedWorkflow] = useState(workflows[0]);
+  const { t } = useLanguage();
 
   return (
-    <section className="py-24 bg-white dark:bg-gray-900">
+    <section className="py-24 bg-gray-50 dark:bg-gray-800" id="workflows">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold mb-4 text-gray-900 dark:text-white">
-            13 Powerful Workflows
+            {t('workflows.title')}
           </h2>
           <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
-            Pre-built automation workflows that you can enable with one click
+            {t('workflows.subtitle')}
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Workflow list */}
-          <div className="lg:col-span-1 space-y-2">
-            {workflows.map((workflow) => (
-              <button
-                key={workflow.id}
-                onClick={() => setSelectedWorkflow(workflow)}
-                className={`w-full text-left p-4 rounded-xl transition-all duration-300 ${
-                  selectedWorkflow.id === workflow.id
-                    ? 'bg-[#07c160] text-white shadow-lg scale-105'
-                    : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold">{workflow.name}</span>
-                  {selectedWorkflow.id === workflow.id && (
-                    <Check className="w-5 h-5" />
-                  )}
-                </div>
-              </button>
-            ))}
-          </div>
-
-          {/* Workflow canvas */}
-          <div className="lg:col-span-2 bg-gradient-to-br from-[#07c160]/5 to-[#95ec69]/10 dark:from-[#07c160]/10 dark:to-[#06ad56]/20 rounded-3xl p-12 border-2 border-[#07c160]/20">
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <div className="w-24 h-24 bg-[#07c160] rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl">
-                  <span className="text-4xl font-bold text-white">{selectedWorkflow.id}</span>
-                </div>
-                <h3 className="text-3xl font-bold mb-4 text-gray-900 dark:text-white">
-                  {selectedWorkflow.name}
-                </h3>
-                <p className="text-xl text-gray-600 dark:text-gray-400 max-w-md mx-auto">
-                  {selectedWorkflow.description}
-                </p>
-                <button className="mt-8 px-8 py-3 bg-[#07c160] hover:bg-[#06ad56] text-white rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105">
-                  Enable Workflow
-                </button>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {workflowKeys.map((key, index) => (
+            <div
+              key={index}
+              className="flex items-center gap-3 p-4 rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 hover:border-[#07c160] dark:hover:border-[#07c160] transition-all duration-300 hover:shadow-lg group"
+            >
+              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-[#07c160]/10 dark:bg-[#07c160]/20 flex items-center justify-center group-hover:bg-[#07c160] transition-colors duration-300">
+                <Check className="w-4 h-4 text-[#07c160] group-hover:text-white transition-colors duration-300" />
               </div>
+              <span className="text-gray-700 dark:text-gray-300 font-medium">
+                {t(`workflows.list.${key}`)}
+              </span>
             </div>
-          </div>
+          ))}
         </div>
       </div>
     </section>

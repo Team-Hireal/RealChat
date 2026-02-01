@@ -1,0 +1,162 @@
+{
+  "brandName": "RealChat",
+  "nav": {
+    "features": "Features",
+    "workflows": "Workflows",
+    "howItWorks": "How It Works",
+    "docs": "Docs",
+    "download": "Download"
+  },
+  "hero": {
+    "title": "Supercharge Your WeChat",
+    "subtitle": "Triage, reply, and stay on top of chats—without leaving WeChat.",
+    "downloadButton": "Download Desktop Companion",
+    "watchDemo": "Watch Demo",
+    "workflows": "workflows",
+    "dailyBrief": "daily brief",
+    "lessReplies": "less missed replies"
+  },
+  "features": {
+    "title": "Everything You Need to Master WeChat",
+    "subtitle": "RealChat brings AI-powered workflows directly into your WeChat experience",
+    "smartTriage": {
+      "title": "Smart Triage",
+      "description": "Automatically categorize and prioritize your messages based on importance and urgency."
+    },
+    "replyQueue": {
+      "title": "Reply Queue",
+      "description": "Never miss a reply with intelligent tracking of conversations that need your attention."
+    },
+    "chatLabels": {
+      "title": "Chat Labels",
+      "description": "Organize contacts with smart tags: Friends, Family, Work, Investors, Leads, and more."
+    },
+    "pinControl": {
+      "title": "Pin Control",
+      "description": "Auto-pin chats that need replies, auto-unpin when resolved. Stay organized effortlessly."
+    },
+    "autoReplies": {
+      "title": "Auto Replies",
+      "description": "Safe, permission-based auto-replies with approval workflows. Never send by accident."
+    },
+    "searchRecall": {
+      "title": "Search & Recall",
+      "description": "Find any conversation instantly with natural language search. \"Where did they send the address?\""
+    }
+  },
+  "featureCards": {
+    "title": "Core Features",
+    "subtitle": "Everything you need to master WeChat communication",
+    "commandConsole": {
+      "title": "Chat-with-self Command Console",
+      "description": "Control the agent by chatting with yourself inside WeChat. Use File Transfer as your command console—no new app to learn."
+    },
+    "importantMessages": {
+      "title": "Important Messages Review",
+      "description": "Answer \"what did I miss?\" instantly. Get a smart digest of messages that actually matter, filtered by importance and urgency."
+    },
+    "replyQueue": {
+      "title": "Reply Queue + Pins",
+      "description": "Pin chats that need replies, unpin when resolved. Automatic tracking of who you owe responses to, with smart reminders."
+    },
+    "autoReplies": {
+      "title": "Auto Replies with Approval",
+      "description": "Safe automation with permission modes. Draft replies, get one-tap approval, or auto-send for trusted contacts only."
+    },
+    "contactMemory": {
+      "title": "Contact Memory",
+      "description": "Maintain relationship context and notes per contact. Remember conversations, preferences, and important details automatically."
+    },
+    "dailyBrief": {
+      "title": "Daily Brief",
+      "description": "Start your day with a digest of who pinged you, what's urgent, and AI-suggested replies. Stay on top without the overwhelm."
+    }
+  },
+  "workflows": {
+    "title": "12 Powerful Workflows",
+    "subtitle": "Automate your WeChat experience with intelligent workflows",
+    "list": {
+      "smartTriage": "Smart Triage & Categorization",
+      "replyQueue": "Reply Queue Management",
+      "autoPin": "Auto Pin/Unpin Important Chats",
+      "aiReplies": "AI-Powered Reply Suggestions",
+      "messageForwarding": "Smart Message Forwarding",
+      "scheduledMessages": "Scheduled Message Sending",
+      "autoResponder": "Intelligent Auto-Responder",
+      "contactManagement": "Contact Organization",
+      "dailyDigest": "Daily Message Digest",
+      "urgencyDetection": "Urgency Detection & Alerts",
+      "groupChatFiltering": "Group Chat Filtering",
+      "spamDetection": "Spam & Noise Reduction"
+    }
+  },
+  "howItWorks": {
+    "title": "How It Works",
+    "subtitle": "Get started in minutes with our simple 4-step process",
+    "steps": {
+      "install": {
+        "title": "Install Desktop Companion",
+        "description": "Download and install the RealChat desktop app on your Mac or Windows computer"
+      },
+      "connect": {
+        "title": "Connect WeChat",
+        "description": "Link your WeChat account securely through the desktop companion"
+      },
+      "configure": {
+        "title": "Configure Workflows",
+        "description": "Set up your preferred workflows and automation rules through the self-chat console"
+      },
+      "enjoy": {
+        "title": "Enjoy Smart WeChat",
+        "description": "Experience a supercharged WeChat with AI-powered assistance"
+      }
+    }
+  },
+  "architecture": {
+    "title": "Privacy-First Hybrid AI Architecture",
+    "subtitle": "Your data stays secure with our innovative hybrid approach",
+    "description": "RealChat uses a unique hybrid AI architecture that processes sensitive data locally on your device while leveraging cloud AI for non-sensitive tasks. This ensures maximum privacy without compromising on intelligence.",
+    "localProcessing": {
+      "title": "Local Processing",
+      "description": "Message analysis and personal data stay on your device"
+    },
+    "cloudAI": {
+      "title": "Cloud AI",
+      "description": "Advanced AI features for non-sensitive operations"
+    },
+    "encrypted": {
+      "title": "End-to-End Encrypted",
+      "description": "All communications are encrypted and secure"
+    }
+  },
+  "cta": {
+    "title": "Ready to Supercharge Your WeChat?",
+    "subtitle": "Download RealChat today and experience the future of WeChat communication",
+    "downloadMac": "Download for Mac",
+    "downloadWindows": "Download for Windows",
+    "viewDocs": "View Documentation",
+    "freeTrial": "Free 14-day trial • No credit card required"
+  },
+  "footer": {
+    "tagline": "Supercharge your WeChat with AI-powered workflows",
+    "product": "Product",
+    "features": "Features",
+    "workflows": "Workflows",
+    "pricing": "Pricing",
+    "changelog": "Changelog",
+    "resources": "Resources",
+    "documentation": "Documentation",
+    "apiReference": "API Reference",
+    "community": "Community",
+    "support": "Support",
+    "company": "Company",
+    "about": "About",
+    "blog": "Blog",
+    "careers": "Careers",
+    "contact": "Contact",
+    "legal": "Legal",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "allRightsReserved": "All rights reserved."
+  }
+}

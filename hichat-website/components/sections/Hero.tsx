@@ -1,8 +1,11 @@
 'use client';
 
 import { ArrowRight, Play } from 'lucide-react';
+import { useLanguage } from '../LanguageProvider';
 
 export default function Hero() {
+  const { t } = useLanguage();
+
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#07c160]/5 via-white to-[#95ec69]/10 dark:from-[#07c160]/10 dark:via-gray-900 dark:to-[#06ad56]/20">
       {/* Animated background elements */}
@@ -15,24 +18,24 @@ export default function Hero() {
         {/* Main headline */}
         <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold mb-6 leading-tight">
           <span className="bg-gradient-to-r from-[#06ad56] via-[#07c160] to-[#95ec69] bg-clip-text text-transparent animate-fade-in">
-            Supercharge Your WeChat
+            {t('hero.title')}
           </span>
         </h1>
 
         {/* Subheadline */}
         <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-gray-700 dark:text-gray-300 mb-12 max-w-4xl mx-auto animate-fade-in-delay leading-relaxed">
-          Triage, reply, and stay on top of chats—without leaving WeChat.
+          {t('hero.subtitle')}
         </p>
 
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16 animate-fade-in-delay-2">
           <button className="group px-8 py-4 bg-[#07c160] hover:bg-[#06ad56] text-white rounded-full font-semibold text-lg transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105 w-full sm:w-auto">
-            Download Desktop Companion
+            {t('hero.downloadButton')}
             <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </button>
           <button className="group px-8 py-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-[#07c160] border-2 border-[#07c160] rounded-full font-semibold text-lg transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl w-full sm:w-auto">
             <Play className="w-5 h-5" />
-            Watch Demo
+            {t('hero.watchDemo')}
           </button>
         </div>
 
@@ -40,15 +43,15 @@ export default function Hero() {
         <div className="flex flex-wrap justify-center gap-6 sm:gap-8 text-sm md:text-base text-gray-600 dark:text-gray-400 animate-fade-in-delay-3">
           <div className="flex items-center gap-2">
             <span className="text-2xl sm:text-3xl font-bold text-[#07c160]">13</span>
-            <span>workflows</span>
+            <span>{t('hero.workflows')}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-2xl sm:text-3xl font-bold text-[#07c160]">30s</span>
-            <span>daily brief</span>
+            <span className="text-2xl sm:text-3xl font-bold text-[#07c160]">30{t('hero.dailyBrief')}</span>
+            <span></span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-2xl sm:text-3xl font-bold text-[#07c160]">85%</span>
-            <span>less missed replies</span>
+            <span>{t('hero.lessReplies')}</span>
           </div>
         </div>
       </div>

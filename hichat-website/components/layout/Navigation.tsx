@@ -2,10 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useLanguage } from '../LanguageProvider';
+import { Languages } from 'lucide-react';
 
 export default function Navigation() {
   const [isDark, setIsDark] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const { locale, setLocale, t } = useLanguage();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -48,7 +51,7 @@ export default function Navigation() {
               </svg>
             </div>
             <span className="text-xl font-bold text-gray-900 dark:text-white">
-              HiChat
+              {t('brandName')}
             </span>
           </Link>
 
@@ -58,40 +61,55 @@ export default function Navigation() {
               href="#features"
               className="text-gray-700 dark:text-gray-300 hover:text-[#07c160] transition-colors"
             >
-              Features
+              {t('nav.features')}
             </Link>
             <Link
               href="#workflows"
               className="text-gray-700 dark:text-gray-300 hover:text-[#07c160] transition-colors"
             >
-              Workflows
+              {t('nav.workflows')}
             </Link>
             <Link
-              href="#privacy"
+              href="#how-it-works"
               className="text-gray-700 dark:text-gray-300 hover:text-[#07c160] transition-colors"
             >
-              Privacy
-            </Link>
-            <Link
-              href="#download"
-              className="text-gray-700 dark:text-gray-300 hover:text-[#07c160] transition-colors"
-            >
-              Download
+              {t('nav.howItWorks')}
             </Link>
             <Link
               href="#docs"
               className="text-gray-700 dark:text-gray-300 hover:text-[#07c160] transition-colors"
             >
-              Docs
+              {t('nav.docs')}
+            </Link>
+            <Link
+              href="#download"
+              className="px-4 py-2 bg-[#07c160] hover:bg-[#06ad56] text-white rounded-full transition-colors font-medium"
+            >
+              {t('nav.download')}
             </Link>
           </div>
 
-          {/* Theme Toggle */}
-          <button
-            onClick={toggleTheme}
-            className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-            aria-label="Toggle theme"
-          >
+          {/* Actions */}
+          <div className="flex items-center space-x-3">
+            {/* Language Toggle */}
+            <button
+              onClick={() => setLocale(locale === 'en' ? 'zh' : 'en')}
+              className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex items-center space-x-1"
+              aria-label="Toggle language"
+              title={locale === 'en' ? 'Switch to Chinese' : '切换到英文'}
+            >
+              <Languages className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {locale === 'en' ? '中文' : 'EN'}
+              </span>
+            </button>
+
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              aria-label="Toggle theme"
+            >
             {isDark ? (
               <svg
                 className="w-5 h-5 text-yellow-500"
@@ -114,6 +132,7 @@ export default function Navigation() {
               </svg>
             )}
           </button>
+          </div>
         </div>
       </div>
     </nav>
