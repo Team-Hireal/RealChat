@@ -21,13 +21,17 @@ const messages: Record<Locale, Messages> = {
 };
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>('en');
+  const [locale, setLocaleState] = useState<Locale>('zh'); // Default to Chinese
 
   // Load saved language preference on mount
   useEffect(() => {
     const saved = localStorage.getItem('language') as Locale;
     if (saved && (saved === 'en' || saved === 'zh')) {
       setLocaleState(saved);
+    } else {
+      // Set default to Chinese if no saved preference
+      setLocaleState('zh');
+      localStorage.setItem('language', 'zh');
     }
   }, []);
 

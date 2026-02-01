@@ -1,28 +1,74 @@
-# WeChat Auto-Reply Bot
+# RealChat - AI-Powered WeChat Automation
 
-Simple and user-friendly WeChat automation bot with both web and terminal interfaces.
+Intelligent WeChat automation with **AI agent integration** supporting mobile WeChat, multiple AI providers, and both web and terminal interfaces.
 
 ## 🎯 What It Does
 
 This bot helps you:
-- **Catch up on unreplied messages** from people you met at events
-- **Send personalized introductions** to new contacts
-- **Send default replies** to existing contacts
-- **Never miss important messages** - no messages are deleted!
+- **AI-powered responses** - Intelligent, context-aware replies using Claude AI
+- **Mobile WeChat support** - Works with your phone's WeChat app (NEW!)
+- **Multiple AI providers** - Choose between Anthropic API, Zypher Agents, or local OpenClaw (NEW!)
+- **Catch up on unreplied messages** - Never miss important contacts
+- **Send personalized introductions** - Smart templating system
+- **Safe & Non-destructive** - No messages are ever deleted
 
 ## ✨ Key Features
 
+### AI Agent Integration (NEW!)
+- **🤖 Three AI Provider Options:**
+  - **Anthropic API** - Direct Claude integration (simple & reliable)
+  - **Zypher Agents** - Advanced agent framework with tool use
+  - **OpenClaw Local** - Connect your local Clawdbot instance
+- **📱 Mobile WeChat Support** - Works with native mobile app via Wechaty
+- **💬 Intelligent Conversations** - Context-aware, natural responses
+- **🔄 Real-time Processing** - Instant AI responses to incoming messages
+
+### Core Features
 - **Safe & Non-destructive** - Does NOT delete any messages
 - **Smart Detection** - Identifies which messages haven't been replied to
 - **Template System** - Use placeholders for personalized messages
-- **Web Interface** - Modern, user-friendly web UI (NEW!)
+- **Web Interface** - Modern, user-friendly web UI
 - **Terminal Interface** - Classic command-line interface
 - **Dry Run Mode** - Test without sending real messages
 - **Contact Tracking** - Remembers who you've already replied to
 
 ---
 
-## 🚀 Getting Started (Complete Setup)
+## 🚀 Quick Start (AI Agent Mode - NEW!)
+
+### Option A: Docker (Recommended - Easiest!)
+
+**1. Install Docker:**
+- Download from https://docs.docker.com/get-docker/
+
+**2. Quick start:**
+```bash
+./quick-start.sh
+```
+
+**3. Configure your AI provider:**
+```bash
+# Edit .env and add your API key
+nano .env
+
+# Set at minimum:
+ANTHROPIC_API_KEY=sk-ant-xxxxx
+```
+
+**4. Scan QR code with mobile WeChat:**
+- Watch the logs for QR code URL
+- Open WeChat on your phone → Settings → WeChat Web
+- Scan the QR code
+
+**5. Start chatting!**
+- Send a message to yourself or any contact
+- The AI will respond automatically
+
+**📚 Full documentation:** See [SETUP_GUIDE.md](SETUP_GUIDE.md) for detailed instructions
+
+---
+
+## 🚀 Getting Started (Classic Mode - Desktop WeChat)
 
 ### Step 1: Prerequisites
 

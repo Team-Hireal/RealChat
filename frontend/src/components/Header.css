@@ -66,6 +66,45 @@
   transform: translateY(-1px);
 }
 
+.btn-settings {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  font-size: 16px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  min-width: 40px;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-settings::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.3s, height 0.3s;
+}
+
+.btn-settings:hover:not(:disabled)::before {
+  width: 100px;
+  height: 100px;
+}
+
+.btn-settings:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-settings svg {
+  position: relative;
+  z-index: 1;
+}
+
 .header-title {
   font-size: 24px;
   color: var(--text-on-glass);

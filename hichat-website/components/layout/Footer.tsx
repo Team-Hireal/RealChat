@@ -14,8 +14,20 @@ export default function Footer() {
           {/* Brand */}
           <div className="md:col-span-1">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-[#07c160] to-[#06ad56] rounded-xl flex items-center justify-center">
-                <span className="text-white font-bold text-xl">R</span>
+              <div className="w-10 h-10 bg-gradient-to-br from-[#07c160] to-[#95ec69] rounded-2xl flex items-center justify-center">
+                <svg
+                  className="w-6 h-6 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                  />
+                </svg>
               </div>
               <span className="text-2xl font-bold text-white">{t('brandName')}</span>
             </div>
@@ -72,7 +84,7 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="pt-8 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-gray-500 text-sm">
-            © 2024 {t('brandName')}. {t('footer.allRightsReserved')}
+            {t('footer.copyright')}
           </p>
           <div className="flex gap-6 text-sm">
             <Link href="#privacy" className="text-gray-500 hover:text-[#07c160] transition-colors">

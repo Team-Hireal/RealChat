@@ -7,7 +7,7 @@ export default function Architecture() {
   const { t } = useLanguage();
 
   return (
-    <section className="py-24 bg-white dark:bg-gray-900">
+    <section className="py-40 bg-white dark:bg-gray-900" id="docs">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold mb-4 text-gray-900 dark:text-white">

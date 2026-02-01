@@ -7,7 +7,7 @@ export default function CTA() {
   const { t } = useLanguage();
 
   return (
-    <section className="py-24 bg-gradient-to-br from-[#07c160]/10 via-[#95ec69]/5 to-white dark:from-[#07c160]/20 dark:via-[#06ad56]/10 dark:to-gray-900" id="download">
+    <section className="py-40 bg-gradient-to-br from-[#07c160]/10 via-[#95ec69]/5 to-white dark:from-[#07c160]/20 dark:via-[#06ad56]/10 dark:to-gray-900" id="download">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold mb-4 text-gray-900 dark:text-white">
@@ -19,14 +19,13 @@ export default function CTA() {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-8">
-          <button className="group px-10 py-5 bg-[#07c160] hover:bg-[#06ad56] text-white rounded-full font-semibold text-xl transition-all duration-300 flex items-center gap-3 shadow-xl hover:shadow-2xl hover:scale-105">
+          <a
+            href="/application"
+            className="group px-10 py-5 bg-[#07c160] hover:bg-[#06ad56] text-white rounded-full font-semibold text-xl transition-all duration-300 flex items-center gap-3 shadow-xl hover:shadow-2xl hover:scale-105"
+          >
             <Download className="w-6 h-6" />
-            {t('cta.downloadMac')}
-          </button>
-          <button className="group px-10 py-5 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-[#07c160] border-2 border-[#07c160] rounded-full font-semibold text-xl transition-all duration-300 flex items-center gap-3 shadow-xl hover:shadow-2xl hover:scale-105">
-            <Download className="w-6 h-6" />
-            {t('cta.downloadWindows')}
-          </button>
+            {t('cta.getStarted')}
+          </a>
         </div>
 
         <div className="text-center">

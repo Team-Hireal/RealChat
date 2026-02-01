@@ -459,6 +459,69 @@ def send_test_message():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# ============================================================================
+# AI Agent Settings Endpoints
+# ============================================================================
+
+@app.route('/api/ai/config', methods=['GET'])
+def get_ai_config():
+    """Get AI agent configuration"""
+    try:
+        # Proxy request to agent orchestrator
+        import requests
+        response = requests.get('http://localhost:8082/api/config', timeout=5)
+        return jsonify(response.json())
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/ai/config', methods=['POST'])
+def update_ai_config():
+    """Update AI agent configuration"""
+    try:
+        import requests
+        data = request.json
+        response = requests.post(
+            'http://localhost:8082/api/config',
+            json=data,
+            timeout=5
+        )
+        add_log('AI configuration updated', 'success')
+        return jsonify(response.json())
+    except Exception as e:
+        add_log(f'Failed to update AI config: {str(e)}', 'error')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/ai/provider', methods=['GET'])
+def get_ai_provider():
+    """Get current AI provider status"""
+    try:
+        import requests
+        response = requests.get('http://localhost:8082/api/provider', timeout=5)
+        return jsonify(response.json())
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/ai/provider', methods=['POST'])
+def set_ai_provider():
+    """Set active AI provider"""
+    try:
+        import requests
+        data = request.json
+        response = requests.post(
+            'http://localhost:8082/api/provider',
+            json=data,
+            timeout=5
+        )
+        add_log(f'AI provider changed to: {data.get("provider")}', 'success')
+        return jsonify(response.json())
+    except Exception as e:
+        add_log(f'Failed to change AI provider: {str(e)}', 'error')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     add_log('Web interface started', 'success')
     print('=' * 50)

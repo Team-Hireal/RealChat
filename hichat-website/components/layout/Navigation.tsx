@@ -49,7 +49,7 @@ export default function Navigation() {
         const activeRect = activeRef.getBoundingClientRect();
 
         setIndicatorStyle({
-          left: activeRect.left - containerRect.left,
+          left: activeRect.left - containerRect.left - 35,
           width: activeRect.width
         });
       }
@@ -199,8 +199,8 @@ export default function Navigation() {
           </Link>
 
           {/* Navigation Links */}
-          <div className="hidden md:flex items-center relative" ref={navContainerRef}>
-            <div className="flex items-center space-x-8 relative pb-2">
+          <div className="hidden md:flex items-center relative">
+            <div className="flex items-center space-x-8 relative pb-2" ref={navContainerRef}>
               {navItems.map((item) => (
                 <a
                   key={item.id}
