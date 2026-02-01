@@ -16,6 +16,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "RealChat - Supercharge Your WeChat",
   description: "AI-powered WeChat assistant with smart triage, auto-replies, and intelligent workflows. 真聊 - 让你的微信拥有超能力",
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+    ],
+  },
 };
 
 export default function RootLayout({

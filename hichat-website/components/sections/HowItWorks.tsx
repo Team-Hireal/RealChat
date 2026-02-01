@@ -14,7 +14,7 @@ export default function HowItWorks() {
   const { t } = useLanguage();
 
   return (
-    <section className="py-24 bg-white dark:bg-gray-900" id="how-it-works">
+    <section className="py-[180px] bg-white dark:bg-gray-900 flex items-center" id="how-it-works">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold mb-4 text-gray-900 dark:text-white">

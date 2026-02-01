@@ -22,7 +22,7 @@ export default function Workflows() {
   const { t } = useLanguage();
 
   return (
-    <section className="py-24 bg-gray-50 dark:bg-gray-800" id="workflows">
+    <section className="py-[230px] bg-gray-50 dark:bg-gray-800 flex items-center" id="workflows">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-bold mb-4 text-gray-900 dark:text-white">

@@ -1,6 +1,7 @@
 {
   "brandName": "RealChat",
   "nav": {
+    "intro": "Intro",
     "features": "Features",
     "workflows": "Workflows",
     "howItWorks": "How It Works",
@@ -9,8 +10,8 @@
   },
   "hero": {
     "title": "Supercharge Your WeChat",
-    "subtitle": "Triage, reply, and stay on top of chats—without leaving WeChat.",
-    "downloadButton": "Download Desktop Companion",
+    "subtitle": "Triage, reply, and stay on top of chats—without leaving WeChat",
+    "downloadButton": "Get Started",
     "watchDemo": "Watch Demo",
     "workflows": "workflows",
     "dailyBrief": "daily brief",
@@ -132,8 +133,7 @@
   "cta": {
     "title": "Ready to Supercharge Your WeChat?",
     "subtitle": "Download RealChat today and experience the future of WeChat communication",
-    "downloadMac": "Download for Mac",
-    "downloadWindows": "Download for Windows",
+    "getStarted": "Get Started",
     "viewDocs": "View Documentation",
     "freeTrial": "Free 14-day trial • No credit card required"
   },
@@ -157,6 +157,43 @@
     "legal": "Legal",
     "privacy": "Privacy Policy",
     "terms": "Terms of Service",
-    "allRightsReserved": "All rights reserved."
+    "allRightsReserved": "All rights reserved.",
+    "copyright": "Hireal Inc. 2026, All Rights Reserved"
+  },
+  "application": {
+    "backToHome": "Back to Home",
+    "title": "Get Started with RealChat",
+    "subtitle": "Choose your installation method and start automating your WeChat messages in minutes",
+    "quickStart": "Quick Start",
+    "dockerSetup": "Docker Setup",
+    "manualSetup": "Manual Setup",
+    "quickStartGuide": "Quick Start Guide",
+    "dockerSetupGuide": "Docker Setup",
+    "manualSetupGuide": "Manual Setup",
+    "step": "Step",
+    "cloneRepo": "Clone the Repository",
+    "runQuickStart": "Run the Quick Start Script",
+    "quickStartDesc": "This script will automatically check prerequisites, set up your environment, and start all services.",
+    "accessApp": "Access the Application",
+    "accessAppDesc": "Open your browser and navigate to:",
+    "openRealChat": "Open RealChat (localhost:5001)",
+    "prerequisites": "Prerequisites",
+    "prereq1": "Docker and Docker Compose installed",
+    "prereq2": "Anthropic API key (get from console.anthropic.com)",
+    "prereq3": "WeChat account (for mobile bridge mode)",
+    "installDocker": "Install Docker",
+    "installDockerDesc": "Download and install Docker Desktop for your platform:",
+    "configureEnv": "Configure Environment",
+    "configureEnvDesc": "Add your Anthropic API key to the .env file",
+    "startServices": "Start Services",
+    "startServicesDesc": "Choose your deployment mode: Full Stack, Web App Only, or AI Agent Stack",
+    "installPython": "Install Python Dependencies",
+    "installNode": "Install Node Dependencies",
+    "startApp": "Start the Application",
+    "startAppDesc": "The application will be available at http://localhost:5001",
+    "needHelp": "Need Help?",
+    "needHelpDesc": "Check out our documentation or join our community for support",
+    "viewOnGitHub": "View on GitHub",
+    "reportIssue": "Report an Issue"
   }
 }

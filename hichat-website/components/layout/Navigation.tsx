@@ -1,26 +1,169 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useLanguage } from '../LanguageProvider';
 import { Languages } from 'lucide-react';
 
+const navItems = [
+  { id: 'intro', href: '#intro' },
+  { id: 'features', href: '#features' },
+  { id: 'workflows', href: '#workflows' },
+  { id: 'how-it-works', href: '#how-it-works' },
+  { id: 'download', href: '#download' }
+];
+
 export default function Navigation() {
   const [isDark, setIsDark] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [activeSection, setActiveSection] = useState('intro');
+  const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
+  const navRefs = useRef<{ [key: string]: HTMLAnchorElement | null }>({});
+  const navContainerRef = useRef<HTMLDivElement>(null);
   const { locale, setLocale, t } = useLanguage();
+
+  // Load saved theme preference on mount
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+      setIsDark(true);
+      document.documentElement.classList.add('dark');
+    } else {
+      setIsDark(false);
+      document.documentElement.classList.remove('dark');
+      // Set default to light mode if no saved preference
+      if (!savedTheme) {
+        localStorage.setItem('theme', 'light');
+      }
+    }
+  }, []);
+
+  // Update indicator position whenever active section changes
+  useEffect(() => {
+    const updateIndicator = () => {
+      const activeRef = navRefs.current[activeSection];
+      const containerRef = navContainerRef.current;
+
+      if (activeRef && containerRef) {
+        const containerRect = containerRef.getBoundingClientRect();
+        const activeRect = activeRef.getBoundingClientRect();
+
+        setIndicatorStyle({
+          left: activeRect.left - containerRect.left,
+          width: activeRect.width
+        });
+      }
+    };
+
+    updateIndicator();
+    // Update on window resize
+    window.addEventListener('resize', updateIndicator);
+    return () => window.removeEventListener('resize', updateIndicator);
+  }, [activeSection]);
 
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
+
+      // Detect active section based on scroll position
+      const scrollPosition = window.scrollY;
+      const windowHeight = window.innerHeight;
+
+      // Get all sections with their positions
+      const sectionPositions = navItems.map(item => {
+        let element;
+        if (item.href === '#intro') {
+          element = document.querySelector('section');
+        } else {
+          element = document.querySelector(item.href);
+        }
+
+        if (element) {
+          const rect = element.getBoundingClientRect();
+          const absoluteTop = scrollPosition + rect.top;
+          const absoluteBottom = absoluteTop + rect.height;
+
+          return {
+            id: item.id,
+            top: absoluteTop,
+            bottom: absoluteBottom,
+            height: rect.height
+          };
+        }
+        return null;
+      }).filter(Boolean);
+
+      // Find which section is most visible in the viewport
+      const navHeight = 80;
+      const viewportTop = scrollPosition + navHeight + 50; // Add offset for better detection
+
+      // Check if we're at the very top
+      if (scrollPosition < 100) {
+        setActiveSection('intro');
+        return;
+      }
+
+      // Find the section that contains the viewport top position
+      let foundSection = null;
+      for (const section of sectionPositions) {
+        if (section && viewportTop >= section.top && viewportTop < section.bottom) {
+          foundSection = section.id;
+          break;
+        }
+      }
+
+      // If no section found, find the closest one
+      if (!foundSection && sectionPositions.length > 0) {
+        const closest = sectionPositions.reduce((prev, curr) => {
+          if (!prev || !curr) return prev || curr;
+          const prevDist = Math.abs(prev.top - viewportTop);
+          const currDist = Math.abs(curr.top - viewportTop);
+          return currDist < prevDist ? curr : prev;
+        });
+        if (closest) {
+          foundSection = closest.id;
+        }
+      }
+
+      if (foundSection && foundSection !== activeSection) {
+        setActiveSection(foundSection);
+      }
     };
-    window.addEventListener('scroll', handleScroll);
+
+    handleScroll(); // Initial check
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [activeSection]);
 
   const toggleTheme = () => {
-    setIsDark(!isDark);
+    const newTheme = !isDark;
+    setIsDark(newTheme);
     document.documentElement.classList.toggle('dark');
+    localStorage.setItem('theme', newTheme ? 'dark' : 'light');
+  };
+
+  const scrollToSection = (e: React.MouseEvent<HTMLAnchorElement>, sectionId: string) => {
+    e.preventDefault();
+
+    if (sectionId === '#intro') {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+      setActiveSection('intro');
+    } else {
+      const element = document.querySelector(sectionId);
+      if (element) {
+        const navHeight = 80;
+        const elementPosition = element.getBoundingClientRect().top;
+        const offsetPosition = elementPosition + window.pageYOffset - navHeight;
+
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: 'smooth'
+        });
+      }
+    }
   };
 
   return (
@@ -56,37 +199,32 @@ export default function Navigation() {
           </Link>
 
           {/* Navigation Links */}
-          <div className="hidden md:flex items-center space-x-8">
-            <Link
-              href="#features"
-              className="text-gray-700 dark:text-gray-300 hover:text-[#07c160] transition-colors"
-            >
-              {t('nav.features')}
-            </Link>
-            <Link
-              href="#workflows"
-              className="text-gray-700 dark:text-gray-300 hover:text-[#07c160] transition-colors"
-            >
-              {t('nav.workflows')}
-            </Link>
-            <Link
-              href="#how-it-works"
-              className="text-gray-700 dark:text-gray-300 hover:text-[#07c160] transition-colors"
-            >
-              {t('nav.howItWorks')}
-            </Link>
-            <Link
-              href="#docs"
-              className="text-gray-700 dark:text-gray-300 hover:text-[#07c160] transition-colors"
-            >
-              {t('nav.docs')}
-            </Link>
-            <Link
-              href="#download"
-              className="px-4 py-2 bg-[#07c160] hover:bg-[#06ad56] text-white rounded-full transition-colors font-medium"
-            >
-              {t('nav.download')}
-            </Link>
+          <div className="hidden md:flex items-center relative" ref={navContainerRef}>
+            <div className="flex items-center space-x-8 relative pb-2">
+              {navItems.map((item) => (
+                <a
+                  key={item.id}
+                  ref={(el) => { navRefs.current[item.id] = el; }}
+                  href={item.href}
+                  onClick={(e) => scrollToSection(e, item.href)}
+                  className={`text-gray-700 dark:text-gray-300 hover:text-[#07c160] dark:hover:text-[#07c160] transition-colors cursor-pointer font-medium py-2 relative ${
+                    activeSection === item.id ? 'text-[#07c160] dark:text-[#07c160]' : ''
+                  }`}
+                >
+                  {t(`nav.${item.id === 'how-it-works' ? 'howItWorks' : item.id}`)}
+                </a>
+              ))}
+
+              {/* Green indicator - more prominent */}
+              <div
+                className="absolute bottom-0 h-1 bg-[#07c160] rounded-full transition-all duration-300 ease-out shadow-lg"
+                style={{
+                  left: `${indicatorStyle.left}px`,
+                  width: `${indicatorStyle.width}px`,
+                  transform: 'translateZ(0)' // Force GPU acceleration
+                }}
+              />
+            </div>
           </div>
 
           {/* Actions */}

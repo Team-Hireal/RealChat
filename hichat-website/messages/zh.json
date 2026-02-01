@@ -1,8 +1,9 @@
 {
   "brandName": "真聊",
   "nav": {
-    "features": "功能特性",
-    "workflows": "工作流程",
+    "intro": "介绍",
+    "features": "功能",
+    "workflows": "工作流",
     "howItWorks": "使用方法",
     "docs": "文档",
     "download": "下载"
@@ -10,7 +11,7 @@
   "hero": {
     "title": "让你的微信拥有超能力",
     "subtitle": "智能分类、快速回复、掌控聊天——无需离开微信",
-    "downloadButton": "下载桌面助手",
+    "downloadButton": "立即开始",
     "watchDemo": "观看演示",
     "workflows": "个工作流",
     "dailyBrief": "秒日报",
@@ -132,16 +133,15 @@
   "cta": {
     "title": "准备好让您的微信更强大了吗？",
     "subtitle": "立即下载真聊，体验微信通讯的未来",
-    "downloadMac": "下载 Mac 版",
-    "downloadWindows": "下载 Windows 版",
+    "getStarted": "立即开始",
     "viewDocs": "查看文档",
     "freeTrial": "免费试用 14 天 • 无需信用卡"
   },
   "footer": {
     "tagline": "通过 AI 驱动的工作流让您的微信更强大",
     "product": "产品",
-    "features": "功能特性",
-    "workflows": "工作流程",
+    "features": "功能",
+    "workflows": "工作",
     "pricing": "价格",
     "changelog": "更新日志",
     "resources": "资源",
@@ -157,6 +157,43 @@
     "legal": "法律",
     "privacy": "隐私政策",
     "terms": "服务条款",
-    "allRightsReserved": "版权所有。"
+    "allRightsReserved": "版权所有。",
+    "copyright": "© 2024 真聊. 版权所有。"
+  },
+  "application": {
+    "backToHome": "返回首页",
+    "title": "开始使用真聊",
+    "subtitle": "选择您的安装方式，几分钟内开始自动化您的微信消息",
+    "quickStart": "快速开始",
+    "dockerSetup": "Docker 安装",
+    "manualSetup": "手动安装",
+    "quickStartGuide": "快速开始指南",
+    "dockerSetupGuide": "Docker 安装",
+    "manualSetupGuide": "手动安装",
+    "step": "步骤",
+    "cloneRepo": "克隆代码仓库",
+    "runQuickStart": "运行快速启动脚本",
+    "quickStartDesc": "此脚本将自动检查先决条件、设置您的环境并启动所有服务。",
+    "accessApp": "访问应用程序",
+    "accessAppDesc": "打开浏览器并访问：",
+    "openRealChat": "打开真聊 (localhost:5001)",
+    "prerequisites": "先决条件",
+    "prereq1": "已安装 Docker 和 Docker Compose",
+    "prereq2": "Anthropic API 密钥（从 console.anthropic.com 获取）",
+    "prereq3": "微信账号（用于移动桥接模式）",
+    "installDocker": "安装 Docker",
+    "installDockerDesc": "为您的平台下载并安装 Docker Desktop：",
+    "configureEnv": "配置环境",
+    "configureEnvDesc": "将您的 Anthropic API 密钥添加到 .env 文件",
+    "startServices": "启动服务",
+    "startServicesDesc": "选择您的部署模式：完整堆栈、仅 Web 应用或 AI 代理堆栈",
+    "installPython": "安装 Python 依赖",
+    "installNode": "安装 Node 依赖",
+    "startApp": "启动应用程序",
+    "startAppDesc": "应用程序将在 http://localhost:5001 上可用",
+    "needHelp": "需要帮助？",
+    "needHelpDesc": "查看我们的文档或加入我们的社区获取支持",
+    "viewOnGitHub": "在 GitHub 上查看",
+    "reportIssue": "报告问题"
   }
 }
