@@ -134,24 +134,34 @@ class UnifiedStorage:
     # Agent State Management
     # ========================================================================
 
-    def save_agent_state(self, state_data: Dict[str, Any]) -> bool:
-        """Save agent state"""
+    def save_agent_state(self, agent_name: str, state_data: Dict[str, Any]) -> bool:
+        """Save agent state for a specific agent"""
         try:
-            path = self.base_path / 'config' / 'agent_state.json'
+            path = self.base_path / 'config' / f'agent_state_{agent_name}.json'
             with open(path, 'w', encoding='utf-8') as f:
                 json.dump(state_data, f, indent=2)
             return True
         except Exception as e:
-            logger.error(f"Failed to save agent state: {e}")
+            logger.error(f"Failed to save agent state for {agent_name}: {e}")
             return False
 
-    def load_agent_state(self) -> Dict[str, Any]:
-        """Load agent state"""
+    def load_agent_state(self, agent_name: str = None) -> Dict[str, Any]:
+        """Load agent state for a specific agent or all agents"""
         try:
-            path = self.base_path / 'config' / 'agent_state.json'
-            if path.exists():
-                with open(path, 'r', encoding='utf-8') as f:
-                    return json.load(f)
+            if agent_name:
+                path = self.base_path / 'config' / f'agent_state_{agent_name}.json'
+                if path.exists():
+                    with open(path, 'r', encoding='utf-8') as f:
+                        return json.load(f)
+            else:
+                # Load all agent states
+                config_dir = self.base_path / 'config'
+                all_states = {}
+                for state_file in config_dir.glob('agent_state_*.json'):
+                    agent_name = state_file.stem.replace('agent_state_', '')
+                    with open(state_file, 'r', encoding='utf-8') as f:
+                        all_states[agent_name] = json.load(f)
+                return all_states
         except Exception as e:
             logger.error(f"Failed to load agent state: {e}")
 
@@ -368,6 +378,201 @@ class UnifiedStorage:
         except Exception as e:
             logger.error(f"Failed to list backups: {e}")
             return []
+
+    # ========================================================================
+    # Message Importance Management
+    # ========================================================================
+
+    def save_message_importance(self, contact_id: str, message_id: str, score: float, metadata: Dict[str, Any] = None) -> bool:
+        """Save message importance score"""
+        try:
+            path = self.base_path / 'data' / 'contacts' / f'{contact_id}_importance.json'
+            importance_data = {}
+
+            if path.exists():
+                with open(path, 'r', encoding='utf-8') as f:
+                    importance_data = json.load(f)
+
+            importance_data[message_id] = {
+                'score': score,
+                'timestamp': datetime.now().isoformat(),
+                'metadata': metadata or {}
+            }
+
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(importance_data, f, indent=2, ensure_ascii=False)
+
+            return True
+        except Exception as e:
+            logger.error(f"Failed to save message importance: {e}")
+            return False
+
+    def load_message_importance(self, contact_id: str, message_id: str = None) -> Dict[str, Any]:
+        """Load message importance scores"""
+        try:
+            path = self.base_path / 'data' / 'contacts' / f'{contact_id}_importance.json'
+            if path.exists():
+                with open(path, 'r', encoding='utf-8') as f:
+                    importance_data = json.load(f)
+                    if message_id:
+                        return importance_data.get(message_id, {})
+                    return importance_data
+        except Exception as e:
+            logger.error(f"Failed to load message importance: {e}")
+        return {}
+
+    def load_pinned_messages(self) -> List[Dict[str, Any]]:
+        """Load all pinned messages across all contacts"""
+        try:
+            pinned_path = self.base_path / 'data' / 'pinned_messages.json'
+            if pinned_path.exists():
+                with open(pinned_path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+        except Exception as e:
+            logger.error(f"Failed to load pinned messages: {e}")
+        return []
+
+    def save_pinned_message(self, contact_id: str, message_id: str, message_data: Dict[str, Any]) -> bool:
+        """Save a pinned message"""
+        try:
+            pinned_path = self.base_path / 'data' / 'pinned_messages.json'
+            pinned_messages = []
+
+            if pinned_path.exists():
+                with open(pinned_path, 'r', encoding='utf-8') as f:
+                    pinned_messages = json.load(f)
+
+            # Add new pinned message
+            pinned_messages.append({
+                'contact_id': contact_id,
+                'message_id': message_id,
+                'pinned_at': datetime.now().isoformat(),
+                'data': message_data
+            })
+
+            with open(pinned_path, 'w', encoding='utf-8') as f:
+                json.dump(pinned_messages, f, indent=2, ensure_ascii=False)
+
+            return True
+        except Exception as e:
+            logger.error(f"Failed to save pinned message: {e}")
+            return False
+
+    def remove_pinned_message(self, contact_id: str, message_id: str) -> bool:
+        """Remove a pinned message"""
+        try:
+            pinned_path = self.base_path / 'data' / 'pinned_messages.json'
+            if not pinned_path.exists():
+                return True
+
+            with open(pinned_path, 'r', encoding='utf-8') as f:
+                pinned_messages = json.load(f)
+
+            # Remove the message
+            pinned_messages = [
+                msg for msg in pinned_messages
+                if not (msg['contact_id'] == contact_id and msg['message_id'] == message_id)
+            ]
+
+            with open(pinned_path, 'w', encoding='utf-8') as f:
+                json.dump(pinned_messages, f, indent=2, ensure_ascii=False)
+
+            return True
+        except Exception as e:
+            logger.error(f"Failed to remove pinned message: {e}")
+            return False
+
+    # ========================================================================
+    # Privacy & Authorization Logs
+    # ========================================================================
+
+    def append_privacy_log(self, log_entry: Dict[str, Any]) -> bool:
+        """Append entry to privacy audit log"""
+        try:
+            log_path = self.base_path / 'logs' / 'privacy_audit.json'
+            logs = []
+
+            if log_path.exists():
+                with open(log_path, 'r', encoding='utf-8') as f:
+                    logs = json.load(f)
+
+            logs.append(log_entry)
+
+            # Keep only last 10000 entries
+            if len(logs) > 10000:
+                logs = logs[-10000:]
+
+            with open(log_path, 'w', encoding='utf-8') as f:
+                json.dump(logs, f, indent=2, ensure_ascii=False)
+
+            return True
+        except Exception as e:
+            logger.error(f"Failed to append privacy log: {e}")
+            return False
+
+    def load_privacy_log(self) -> List[Dict[str, Any]]:
+        """Load privacy audit log"""
+        try:
+            log_path = self.base_path / 'logs' / 'privacy_audit.json'
+            if log_path.exists():
+                with open(log_path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+        except Exception as e:
+            logger.error(f"Failed to load privacy log: {e}")
+        return []
+
+    # ========================================================================
+    # Relationship Analysis
+    # ========================================================================
+
+    def save_relationship_analysis(self, contact_id: str, analysis: Dict[str, Any]) -> bool:
+        """Save relationship analysis for a contact"""
+        try:
+            path = self.base_path / 'data' / 'contacts' / f'{contact_id}_relationship.json'
+            analysis['last_updated'] = datetime.now().isoformat()
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(analysis, f, indent=2, ensure_ascii=False)
+            logger.info(f"Relationship analysis saved for {contact_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to save relationship analysis: {e}")
+            return False
+
+    def load_relationship_analysis(self, contact_id: str) -> Dict[str, Any]:
+        """Load relationship analysis for a contact"""
+        try:
+            path = self.base_path / 'data' / 'contacts' / f'{contact_id}_relationship.json'
+            if path.exists():
+                with open(path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+        except Exception as e:
+            logger.error(f"Failed to load relationship analysis: {e}")
+        return {}
+
+    def update_contact_category(self, contact_id: str, category: str, confidence: float = None) -> bool:
+        """Update contact category (wrapper for save_contact_category with confidence)"""
+        try:
+            categories_path = self.base_path / 'data' / 'contacts' / 'categories.json'
+            categories = {}
+
+            if categories_path.exists():
+                with open(categories_path, 'r', encoding='utf-8') as f:
+                    categories = json.load(f)
+
+            categories[contact_id] = {
+                'category': category,
+                'confidence': confidence,
+                'updated_at': datetime.now().isoformat()
+            }
+
+            with open(categories_path, 'w', encoding='utf-8') as f:
+                json.dump(categories, f, indent=2, ensure_ascii=False)
+
+            logger.info(f"Contact {contact_id} categorized as: {category} (confidence: {confidence})")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to update contact category: {e}")
+            return False
 
     # ========================================================================
     # Utility Methods
