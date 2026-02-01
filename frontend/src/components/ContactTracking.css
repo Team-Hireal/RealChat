@@ -1,0 +1,99 @@
+.contact-tracking {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  animation: fadeIn 0.9s ease-out;
+  position: relative;
+  transition: all var(--transition-normal);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.contact-tracking:hover {
+  box-shadow: var(--glass-shadow-hover);
+}
+
+.contact-tracking h2 {
+  font-size: 18px;
+  margin-bottom: var(--spacing-md);
+  color: var(--text-on-glass);
+  border-bottom: 1px solid var(--glass-border);
+  padding-bottom: var(--spacing-sm);
+  font-weight: 600;
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+}
+
+.tracking-container {
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
+  z-index: 1;
+  min-height: 150px;
+  max-height: 300px;
+}
+
+/* Custom scrollbar for glass effect */
+.tracking-container::-webkit-scrollbar {
+  width: 10px;
+}
+
+.tracking-container::-webkit-scrollbar-track {
+  background: var(--glass-bg-dark);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+}
+
+.tracking-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all var(--transition-fast);
+}
+
+.tracking-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(7, 193, 96, 0.5);
+  box-shadow: 0 0 10px rgba(7, 193, 96, 0.3);
+}
+
+.tracking-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.tracking-item {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--glass-bg-dark);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-xs);
+  font-size: 14px;
+  color: var(--text-on-glass);
+  transition: all var(--transition-fast);
+  animation: slideIn 0.3s ease-out;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.tracking-item:hover {
+  transform: translateX(2px);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  border-color: rgba(7, 193, 96, 0.5);
+}
+
+.empty-state {
+  color: var(--text-on-glass-secondary);
+  font-style: italic;
+  text-align: center;
+  padding: var(--spacing-md);
+}
