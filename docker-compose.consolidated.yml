@@ -1,0 +1,55 @@
+# RealChat - Consolidated Deployment
+# Single service deployment
+
+version: '3.8'
+
+services:
+  realchat:
+    build:
+      context: .
+      dockerfile: Dockerfile.consolidated
+    container_name: realchat-monorepo
+    ports:
+      - "5001:5001"
+    environment:
+      # Flask Configuration
+      - FLASK_ENV=${FLASK_ENV:-production}
+      - FLASK_PORT=5001
+      - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
+
+      # AI Provider (Anthropic Claude)
+      - AI_API_KEY=${AI_API_KEY}
+      - AI_BASE_URL=${AI_BASE_URL:-https://api.anthropic.com}
+      - AI_MODEL=${AI_MODEL:-claude-sonnet-4-5-20250929}
+      - AI_MAX_TOKENS=${AI_MAX_TOKENS:-1024}
+
+      # WeChat Configuration
+      - WECHAT_CHAT_NAMES=${WECHAT_CHAT_NAMES:-File Transfer,文件传输助手}
+      - WECHAT_SCAN_METHOD=${WECHAT_SCAN_METHOD:-applescript}
+
+      # Agent Configuration
+      - AGENT_AUTO_START=${AGENT_AUTO_START:-false}
+      - AGENT_MONITOR_INTERVAL=${AGENT_MONITOR_INTERVAL:-3}
+
+      # Storage
+      - STORAGE_PATH=/app/data
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      # Mount .env for local development
+      - ./.env:/app/.env
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  default:
+    name: realchat-network
