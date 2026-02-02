@@ -58,7 +58,8 @@ agent_running = False
 agent_thread = None
 last_message = ""
 selected_chat = None  # Store selected chat for agent
-DEFAULT_COMMAND_CHAT = "File Transfer"  # Default chat for commands
+DEFAULT_COMMAND_CHAT = "File Transfer"  # Actual chat name for File Transfer
+DEFAULT_SEARCH_TERM = "File"  # Search term to find File Transfer chat
 
 
 # ============================================================================
@@ -120,15 +121,45 @@ def get_chats():
     """Scan and return available chats"""
     try:
         max_chats = request.args.get('max', 10, type=int)
-        chats = wechat_service.scan_chats(max_chats)
+        structured = request.args.get('structured', 'false').lower() == 'true'
+
+        if structured:
+            chats = wechat_service.scan_chats_structured(max_chats)
+        else:
+            chats = wechat_service.scan_chats(max_chats)
+
         return jsonify({
             "success": True,
             "chats": chats,
             "count": len(chats),
-            "method": wechat_service.scan_method
+            "method": wechat_service.scan_method,
+            "structured": structured
         })
     except Exception as e:
         logger.error(f"Error scanning chats: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/wechat/chats/search', methods=['GET'])
+def search_chats():
+    """Search for chats"""
+    try:
+        query = request.args.get('q', '')
+        max_results = request.args.get('max', 5, type=int)
+
+        if not query:
+            return jsonify({"success": False, "error": "Query parameter 'q' is required"}), 400
+
+        results = wechat_service.search_chats(query, max_results)
+
+        return jsonify({
+            "success": True,
+            "query": query,
+            "results": results,
+            "count": len(results)
+        })
+    except Exception as e:
+        logger.error(f"Error searching chats: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -159,15 +190,84 @@ def read_messages():
     """Read messages from WeChat"""
     try:
         chat_name = request.args.get('chat_name')
-        content = wechat_service.read_last_message(chat_name)
+        structured = request.args.get('structured', 'false').lower() == 'true'
 
-        return jsonify({
-            "success": True,
-            "content": content,
-            "length": len(content) if content else 0
-        })
+        if structured:
+            data = wechat_service.read_messages_structured(chat_name)
+            if data:
+                return jsonify({
+                    "success": True,
+                    "data": data
+                })
+            else:
+                return jsonify({
+                    "success": False,
+                    "error": "Failed to read messages"
+                }), 500
+        else:
+            content = wechat_service.read_last_message(chat_name)
+            return jsonify({
+                "success": True,
+                "content": content,
+                "length": len(content) if content else 0
+            })
     except Exception as e:
         logger.error(f"Error reading messages: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/wechat/history', methods=['GET'])
+def scan_history():
+    """Scan conversation history"""
+    try:
+        chat_name = request.args.get('chat_name')
+        max_messages = request.args.get('max', 50, type=int)
+
+        history = wechat_service.scan_conversation_history(chat_name, max_messages)
+
+        if history:
+            return jsonify({
+                "success": True,
+                "history": history
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Failed to scan history"
+            }), 500
+    except Exception as e:
+        logger.error(f"Error scanning history: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/wechat/window', methods=['GET'])
+def get_window_info():
+    """Get WeChat window information"""
+    try:
+        window_info = wechat_service.get_wechat_window_info()
+        cursor_pos = wechat_service.get_cursor_position()
+        window_under_cursor = wechat_service.get_window_under_cursor()
+        is_focused = wechat_service.verify_wechat_active_and_focused()
+
+        if window_info:
+            return jsonify({
+                "success": True,
+                "window": window_info,
+                "cursor": cursor_pos,
+                "window_under_cursor": window_under_cursor,
+                "is_running": True,
+                "is_ready": wechat_service.ensure_wechat_ready(),
+                "is_focused": is_focused,
+                "cursor_in_window": window_under_cursor and window_under_cursor.get('process_name') == 'WeChat'
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "WeChat window not found",
+                "is_running": wechat_service.is_wechat_running()
+            }), 404
+    except Exception as e:
+        logger.error(f"Error getting window info: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -362,11 +462,23 @@ def agent_worker():
     logger.info("Agent worker started")
     socketio.emit('agent_status', {'status': 'started'})
 
-    # Default to File Transfer for commands, unless user specified a chat
+    # Resolve "File" to actual chat name
     command_chat = DEFAULT_COMMAND_CHAT
+
+    # Try to search for "File" to get the actual chat name
+    try:
+        search_results = wechat_service.search_chats(DEFAULT_SEARCH_TERM, max_results=1)
+        if search_results and len(search_results) > 0:
+            command_chat = search_results[0]['name']
+            logger.info(f"Resolved '{DEFAULT_SEARCH_TERM}' to '{command_chat}'")
+        else:
+            logger.info(f"Using default command chat: {command_chat}")
+    except Exception as e:
+        logger.warning(f"Could not resolve search term, using default: {e}")
+
     target_chat = selected_chat if selected_chat else command_chat
 
-    # Send startup message - ONLY ONE MESSAGE to File Transfer
+    # Send startup message
     startup_msg = f"RealChat Agent | {time.strftime('%H:%M:%S')} | Test: OK"
 
     wechat_service.send_message(startup_msg, command_chat)
@@ -376,87 +488,117 @@ def agent_worker():
     if command_executor:
         command_executor.set_current_chat(selected_chat)
 
-    monitor_interval = int(os.getenv('AGENT_MONITOR_INTERVAL', '3'))
+    monitor_interval = int(os.getenv('AGENT_MONITOR_INTERVAL', '1'))  # Reduced to 1 second for faster response
+
+    # Track message history to avoid duplicates
+    message_history = set()
 
     while agent_running:
         try:
+            # Comprehensive verification: WeChat must be frontmost AND cursor must be in window
+            if not wechat_service.verify_wechat_active_and_focused():
+                logger.debug("WeChat not active or cursor outside window, pausing agent actions")
+                time.sleep(monitor_interval)
+                continue
+
             # Always monitor File Transfer for commands
-            command_content = wechat_service.read_last_message(command_chat)
+            command_data = wechat_service.read_messages_structured(command_chat)
 
-            if command_content:
-                lines = [l.strip() for l in command_content.split('\n') if l.strip()]
-                if lines:
-                    latest_command = lines[-1]
+            if command_data and command_data.get('latest_message'):
+                latest_command = command_data['latest_message']
 
-                    # Check if new message (not from us)
-                    if latest_command != last_message and "RealChat" not in latest_command and "🤖" not in latest_command:
-                        logger.info(f"File Transfer message: {latest_command[:50]}...")
+                # Check if new message (not from us and not seen before)
+                if (latest_command != last_message and
+                    "RealChat" not in latest_command and
+                    "🤖" not in latest_command and
+                    latest_command not in message_history):
 
-                        # Check if it's a command
-                        if command_executor:
-                            parsed_cmd = command_executor.parser.parse(latest_command)
+                    logger.info(f"File Transfer message: {latest_command[:50]}...")
+                    message_history.add(latest_command)
 
-                            if parsed_cmd:
-                                # Execute command
-                                logger.info(f"Executing command: {parsed_cmd['command']}")
-                                response = command_executor.execute(parsed_cmd)
+                    # Check if it's a command
+                    if command_executor:
+                        parsed_cmd = command_executor.parser.parse(latest_command)
 
-                                # Send response to File Transfer
-                                wechat_service.send_message(response, command_chat)
-                                last_message = response
+                        if parsed_cmd:
+                            # Execute command
+                            logger.info(f"Executing command: {parsed_cmd['command']}")
+                            response = command_executor.execute(parsed_cmd)
 
-                                # Update target chat if monitoring changed
-                                new_target = command_executor.get_current_chat()
-                                if new_target != selected_chat:
-                                    selected_chat = new_target
-                                    target_chat = selected_chat if selected_chat else command_chat
-                                    logger.info(f"Switched monitoring to: {target_chat}")
-                                    socketio.emit('chat_switched', {'chat': target_chat})
+                            # Send response to File Transfer
+                            wechat_service.send_message(response, command_chat)
+                            last_message = response
 
-                                socketio.emit('command_executed', {
-                                    'command': parsed_cmd['command'],
-                                    'response': response
-                                })
-                                continue
+                            # Update target chat if monitoring changed
+                            new_target = command_executor.get_current_chat()
+                            if new_target != selected_chat:
+                                selected_chat = new_target
+                                target_chat = selected_chat if selected_chat else command_chat
+                                logger.info(f"Switched monitoring to: {target_chat}")
+                                socketio.emit('chat_switched', {'chat': target_chat})
+
+                            socketio.emit('command_executed', {
+                                'command': parsed_cmd['command'],
+                                'response': response
+                            })
+                            continue
 
             # Monitor target chat if specified (not File Transfer)
             if selected_chat and selected_chat != command_chat:
-                target_content = wechat_service.read_last_message(selected_chat)
+                target_data = wechat_service.read_messages_structured(selected_chat)
 
-                if target_content:
-                    lines = [l.strip() for l in target_content.split('\n') if l.strip()]
-                    if lines:
-                        latest_msg = lines[-1]
+                if target_data and target_data.get('latest_message'):
+                    latest_msg = target_data['latest_message']
 
-                        # Check if new message (not from us)
-                        if latest_msg != last_message and "RealChat" not in latest_msg and "🤖" not in latest_msg:
-                            logger.info(f"New message in {selected_chat}: {latest_msg[:50]}...")
-                            socketio.emit('new_message', {
-                                'message': latest_msg,
+                    # Check if new message (not from us and not seen before)
+                    if (latest_msg != last_message and
+                        "RealChat" not in latest_msg and
+                        "🤖" not in latest_msg and
+                        latest_msg not in message_history):
+
+                        logger.info(f"New message in {selected_chat}: {latest_msg[:50]}...")
+                        message_history.add(latest_msg)
+
+                        socketio.emit('new_message', {
+                            'message': latest_msg,
+                            'chat': selected_chat,
+                            'metadata': {
+                                'message_count': target_data.get('message_count', 0),
+                                'timestamp': target_data.get('timestamp', 0)
+                            }
+                        })
+
+                        # Get AI response with context
+                        context = {
+                            'chat_name': selected_chat,
+                            'message_count': target_data.get('message_count', 0)
+                        }
+                        ai_response = ai_service.get_chat_response(latest_msg, context)
+
+                        if ai_response:
+                            logger.info(f"AI response: {ai_response[:50]}...")
+                            socketio.emit('ai_response', {
+                                'response': ai_response,
                                 'chat': selected_chat
                             })
 
-                            # Get AI response
-                            ai_response = ai_service.get_chat_response(latest_msg)
-
-                            if ai_response:
-                                logger.info(f"AI response: {ai_response[:50]}...")
-                                socketio.emit('ai_response', {
-                                    'response': ai_response,
+                            # Send response to target chat
+                            if wechat_service.send_message(ai_response, selected_chat):
+                                logger.info("Response sent successfully")
+                                last_message = ai_response
+                                message_history.add(ai_response)
+                                socketio.emit('message_sent', {
+                                    'message': ai_response,
                                     'chat': selected_chat
                                 })
+                            else:
+                                logger.error("Failed to send response")
+                                socketio.emit('error', {'error': 'Failed to send message'})
 
-                                # Send response to target chat
-                                if wechat_service.send_message(ai_response, selected_chat):
-                                    logger.info("Response sent successfully")
-                                    last_message = ai_response
-                                    socketio.emit('message_sent', {
-                                        'message': ai_response,
-                                        'chat': selected_chat
-                                    })
-                                else:
-                                    logger.error("Failed to send response")
-                                    socketio.emit('error', {'error': 'Failed to send message'})
+            # Clean up old messages from history (keep last 100)
+            if len(message_history) > 100:
+                message_history.clear()
+                logger.info("Cleared message history")
 
             time.sleep(monitor_interval)
 
