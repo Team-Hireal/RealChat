@@ -40,3 +40,19 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+
+# Test artifacts
+test-*.json
+demo_results.json
+ready-message.json
+*_results.json
+
+# Test scripts (temporary)
+quick_test.py
+test_agent_*.py
+test_messaging_*.py
+test_full_*.py
+send_test_message.py
+
+# Deno (not used in Python project)
+deno.lock
