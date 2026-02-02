@@ -371,6 +371,72 @@ def stop_agent():
 
 
 # ============================================================================
+# Backend Configuration Routes
+# ============================================================================
+
+@app.route('/api/backend/config', methods=['GET'])
+def get_backend_config():
+    """Get current backend configuration"""
+    return jsonify({
+        "success": True,
+        "config": {
+            "ai_model": ai_config['model'],
+            "ai_base_url": ai_config['base_url'],
+            "ai_max_tokens": ai_config['max_tokens'],
+            "scan_method": wechat_config['scan_method'],
+            "chat_names": wechat_config['chat_names'],
+            "agent_running": agent_running,
+            "selected_chat": selected_chat,
+            "available_models": [
+                "claude-sonnet-4-5-20250929",
+                "claude-opus-4-5-20251101",
+                "claude-3-5-sonnet-20241022",
+                "claude-3-opus-20240229"
+            ],
+            "available_scan_methods": ["applescript", "ocr", "manual"]
+        }
+    })
+
+
+@app.route('/api/backend/config', methods=['POST'])
+def update_backend_config():
+    """Update backend configuration"""
+    try:
+        data = request.json or {}
+        updated = []
+
+        # Update AI model
+        if 'ai_model' in data:
+            ai_config['model'] = data['ai_model']
+            ai_service.model = data['ai_model']
+            updated.append(f"AI model: {data['ai_model']}")
+
+        # Update scan method
+        if 'scan_method' in data:
+            wechat_config['scan_method'] = data['scan_method']
+            wechat_service.scan_method = data['scan_method']
+            updated.append(f"Scan method: {data['scan_method']}")
+
+        # Update max tokens
+        if 'ai_max_tokens' in data:
+            ai_config['max_tokens'] = str(data['ai_max_tokens'])
+            updated.append(f"Max tokens: {data['ai_max_tokens']}")
+
+        return jsonify({
+            "success": True,
+            "message": f"Updated: {', '.join(updated)}",
+            "config": {
+                "ai_model": ai_config['model'],
+                "scan_method": wechat_config['scan_method'],
+                "ai_max_tokens": ai_config['max_tokens']
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error updating config: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ============================================================================
 # Legacy API Routes (for React frontend compatibility)
 # ============================================================================
 
