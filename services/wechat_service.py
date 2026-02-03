@@ -292,11 +292,7 @@ class WeChatService:
         Returns:
             bool: Success status
         """
-        # Verify WeChat is ready and cursor is in window
-        if not self.verify_wechat_active_and_focused():
-            logger.warning("Cannot send message: WeChat not active or cursor outside window")
-            return False
-
+        # Verify WeChat is ready (running and has window)
         if not self.ensure_wechat_ready():
             logger.error("WeChat is not ready for automation")
             return False

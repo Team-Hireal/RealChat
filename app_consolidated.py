@@ -69,7 +69,12 @@ DEFAULT_SEARCH_TERM = "File"  # Search term to find File Transfer chat
 @app.route('/')
 def index():
     """Serve web client"""
-    # Try enhanced client first
+    # Try control panel first (primary interface)
+    control_panel = Path('control_panel.html')
+    if control_panel.exists():
+        return send_from_directory('.', 'control_panel.html')
+
+    # Try enhanced client
     enhanced_client = Path('client_enhanced.html')
     if enhanced_client.exists():
         return send_from_directory('.', 'client_enhanced.html')
