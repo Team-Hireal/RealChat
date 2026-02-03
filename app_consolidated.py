@@ -528,21 +528,11 @@ def agent_worker():
     logger.info("Agent worker started")
     socketio.emit('agent_status', {'status': 'started'})
 
-    # Resolve "File" to actual chat name
+    # Use selected chat or default command chat (no search needed - we already know the names)
     command_chat = DEFAULT_COMMAND_CHAT
-
-    # Try to search for "File" to get the actual chat name
-    try:
-        search_results = wechat_service.search_chats(DEFAULT_SEARCH_TERM, max_results=1)
-        if search_results and len(search_results) > 0:
-            command_chat = search_results[0]['name']
-            logger.info(f"Resolved '{DEFAULT_SEARCH_TERM}' to '{command_chat}'")
-        else:
-            logger.info(f"Using default command chat: {command_chat}")
-    except Exception as e:
-        logger.warning(f"Could not resolve search term, using default: {e}")
-
     target_chat = selected_chat if selected_chat else command_chat
+
+    logger.info(f"Agent monitoring chat: {target_chat}")
 
     # Send startup message
     startup_msg = f"RealChat Agent | {time.strftime('%H:%M:%S')} | Test: OK"

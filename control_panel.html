@@ -677,20 +677,12 @@
         }
 
         async function startAgent() {
-            // Get chat name - if it's "File", search for it first
-            let chatName = document.getElementById('chat-name').value;
-
-            // If searching for "File", find the actual chat name
-            if (chatName && chatName.toLowerCase() === 'file') {
-                const searchData = await apiCall(`/api/wechat/chats/search?q=File`);
-                if (searchData.success && searchData.results.length > 0) {
-                    chatName = searchData.results[0].name;
-                    addLog(`Resolved "File" to: ${chatName}`, 'info');
-                }
-            }
-
+            const chatName = document.getElementById('chat-name').value;
             const body = chatName ? { chat_name: chatName } : {};
+
+            addLog('Starting agent...', 'info');
             const data = await apiCall('/api/agent/start', 'POST', body);
+
             if (data.success) {
                 addLog(data.message, 'success');
                 agentRunning = true;
@@ -707,35 +699,46 @@
             }
         }
 
+        let isSending = false;
+
         async function sendMessage() {
+            // Prevent duplicate sends
+            if (isSending) return;
+
             const input = document.getElementById('message-input');
             const message = input.value.trim();
             if (!message) return;
 
-            // Get chat name - if it's "File", search for it first
-            let chatName = document.getElementById('chat-name').value || 'File';
+            isSending = true;
 
-            // If searching for "File", find the actual chat name
-            if (chatName.toLowerCase() === 'file') {
-                const searchData = await apiCall(`/api/wechat/chats/search?q=File`);
-                if (searchData.success && searchData.results.length > 0) {
-                    chatName = searchData.results[0].name;
-                    addLog(`Using chat: ${chatName}`, 'info');
+            try {
+                // Get chat name - if it's "File", search for it first
+                let chatName = document.getElementById('chat-name').value || 'File';
+
+                // If searching for "File", find the actual chat name
+                if (chatName.toLowerCase() === 'file') {
+                    const searchData = await apiCall(`/api/wechat/chats/search?q=File`);
+                    if (searchData.success && searchData.results.length > 0) {
+                        chatName = searchData.results[0].name;
+                        addLog(`Using chat: ${chatName}`, 'info');
+                    }
                 }
-            }
 
-            addLog(`Sending: ${message}`, 'info');
+                addLog(`Sending: ${message}`, 'info');
 
-            const data = await apiCall('/api/wechat/send', 'POST', {
-                message: message,
-                chat_name: chatName
-            });
+                const data = await apiCall('/api/wechat/send', 'POST', {
+                    message: message,
+                    chat_name: chatName
+                });
 
-            if (data.success) {
-                addLog('Message sent successfully', 'success');
-                input.value = '';
-            } else {
-                addLog(`Failed to send: ${data.error}`, 'error');
+                if (data.success) {
+                    addLog('Message sent successfully', 'success');
+                    input.value = '';
+                } else {
+                    addLog(`Failed to send: ${data.error}`, 'error');
+                }
+            } finally {
+                isSending = false;
             }
         }
 

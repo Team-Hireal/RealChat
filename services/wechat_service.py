@@ -318,35 +318,35 @@ class WeChatService:
             tell application "WeChat"
                 activate
             end tell
-            delay 0.5
+            delay 0.2
 
             tell application "System Events"
                 tell process "WeChat"
                     -- Open search
                     keystroke "f" using {{command down}}
-                    delay 0.3
+                    delay 0.15
 
                     -- Clear search field
                     keystroke "a" using {{command down}}
-                    delay 0.1
+                    delay 0.05
                     key code 51  -- Delete
-                    delay 0.2
+                    delay 0.1
 
                     -- Type "File" (simplified search term)
                     keystroke "File"
-                    delay 0.5
+                    delay 0.2
 
                     -- Press Enter to open chat directly
                     key code 36  -- Enter
-                    delay 0.5
+                    delay 0.3
 
                     -- Type message directly (chat should be open now)
                     keystroke msg
-                    delay 0.3
+                    delay 0.15
 
                     -- Send message
                     key code 36  -- Enter
-                    delay 0.2
+                    delay 0.1
 
                     return "SUCCESS"
                 end tell
@@ -381,27 +381,27 @@ class WeChatService:
         for chat in target_chats:
             script = f'''
             tell application "WeChat" to activate
-            delay 0.5
+            delay 0.2
             tell application "System Events"
                 tell process "WeChat"
                     keystroke "f" using {{command down}}
+                    delay 0.15
+                    keystroke "a" using {{command down}}
+                    delay 0.05
+                    key code 51
+                    delay 0.1
+                    keystroke "{chat}"
                     delay 0.3
+                    key code 125  -- Down arrow
+                    delay 0.15
+                    key code 36  -- Enter
+                    delay 0.3
+                    key code 53  -- ESC
+                    delay 0.15
                     keystroke "a" using {{command down}}
                     delay 0.1
-                    key code 51
-                    delay 0.2
-                    keystroke "{chat}"
-                    delay 0.7
-                    key code 125  -- Down arrow
-                    delay 0.3
-                    key code 36  -- Enter
-                    delay 0.5
-                    key code 53  -- ESC
-                    delay 0.3
-                    keystroke "a" using {{command down}}
-                    delay 0.2
                     keystroke "c" using {{command down}}
-                    delay 0.3
+                    delay 0.15
                 end tell
             end tell
             return the clipboard
