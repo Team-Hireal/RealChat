@@ -126,7 +126,7 @@ class AIService:
 
         Args:
             user_message: User's message
-            context: Optional context (contact info, history, etc.)
+            context: Optional context (contact info, history, conversation_history, etc.)
 
         Returns:
             str: AI response
@@ -141,9 +141,35 @@ class AIService:
                 system_prompt += f"\n\nYou are chatting with: {context['contact_name']}"
             if 'relationship' in context:
                 system_prompt += f"\nRelationship: {context['relationship']}"
+            if 'chat_name' in context:
+                system_prompt += f"\n\nChat: {context['chat_name']}"
+            if 'message_count' in context:
+                system_prompt += f"\nTotal messages in conversation: {context['message_count']}"
 
-        # Get response
-        return self.get_response(user_message, system_prompt=system_prompt)
+        # Build conversation history for API
+        conversation_history = []
+        if context and 'conversation_history' in context:
+            history = context['conversation_history']
+            if history:
+                system_prompt += f"\n\nRecent conversation history ({len(history)} messages):"
+                for msg in history[:-1]:  # Exclude the latest message (it's the user_message)
+                    text = msg.get('text', '')
+                    if text:
+                        # Try to determine if it's from user or assistant
+                        # Messages with "🤖" or "RealChat" are from assistant
+                        if "🤖" in text or "RealChat" in text:
+                            conversation_history.append({
+                                "role": "assistant",
+                                "content": text.replace("🤖", "").strip()
+                            })
+                        else:
+                            conversation_history.append({
+                                "role": "user",
+                                "content": text
+                            })
+
+        # Get response with conversation history
+        return self.get_response(user_message, system_prompt=system_prompt, conversation_history=conversation_history)
 
     def analyze_message_importance(self, message: str, contact_info: Dict = None) -> Dict:
         """

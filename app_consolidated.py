@@ -375,6 +375,132 @@ def stop_agent():
     })
 
 
+@app.route('/api/agent/switch-chat', methods=['POST'])
+def switch_chat():
+    """Switch agent to monitor a different chat"""
+    global selected_chat, agent_running
+
+    if not agent_running:
+        return jsonify({"success": False, "error": "Agent not running"})
+
+    data = request.json or {}
+    new_chat = data.get('chat_name')
+
+    if not new_chat:
+        return jsonify({"success": False, "error": "chat_name required"}), 400
+
+    previous_chat = selected_chat
+    selected_chat = new_chat
+
+    logger.info(f"Agent switched from '{previous_chat}' to '{new_chat}'")
+    socketio.emit('chat_switched', {
+        'from': previous_chat,
+        'to': new_chat
+    })
+
+    return jsonify({
+        "success": True,
+        "previous_chat": previous_chat,
+        "current_chat": new_chat,
+        "message": f"Agent switched to {new_chat}"
+    })
+
+
+@app.route('/api/messages/history/<chat_name>', methods=['GET'])
+def get_message_history(chat_name):
+    """Get conversation history for a specific chat"""
+    try:
+        limit = int(request.args.get('limit', 50))
+
+        # Read messages from WeChat
+        data = wechat_service.read_messages_structured(chat_name)
+
+        if not data:
+            return jsonify({
+                "success": False,
+                "error": "Failed to read messages"
+            }), 500
+
+        # Parse messages from raw content
+        messages = []
+        if data.get('messages'):
+            for msg in data['messages']:
+                messages.append({
+                    'index': msg.get('index', 0),
+                    'text': msg.get('text', ''),
+                    'length': msg.get('length', 0)
+                })
+
+        return jsonify({
+            "success": True,
+            "chat_name": chat_name,
+            "total_messages": data.get('message_count', 0),
+            "timestamp": data.get('timestamp', 0),
+            "messages": messages[:limit],
+            "latest_message": data.get('latest_message', '')
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting message history: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@app.route('/api/messages/send', methods=['POST'])
+def send_message_api():
+    """Send a message and optionally track the reply"""
+    try:
+        data = request.json or {}
+        chat_name = data.get('chat_name')
+        message = data.get('message')
+        track_reply = data.get('track_reply', False)
+
+        if not chat_name or not message:
+            return jsonify({
+                "success": False,
+                "error": "chat_name and message required"
+            }), 400
+
+        # Send message
+        success = wechat_service.send_message(message, chat_name)
+
+        if not success:
+            return jsonify({
+                "success": False,
+                "error": "Failed to send message"
+            }), 500
+
+        response = {
+            "success": True,
+            "message_id": f"msg_{int(time.time())}",
+            "sent_at": time.strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "chat_name": chat_name
+        }
+
+        # If tracking reply, emit WebSocket event
+        if track_reply:
+            socketio.emit('message_sent', {
+                'message': message,
+                'chat': chat_name,
+                'timestamp': response['sent_at']
+            })
+            response['reply'] = {
+                'text': 'Message sent successfully',
+                'displayed': True
+            }
+
+        return jsonify(response)
+
+    except Exception as e:
+        logger.error(f"Error sending message: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
 # ============================================================================
 # Backend Configuration Routes
 # ============================================================================
@@ -629,11 +755,25 @@ def agent_worker():
                             }
                         })
 
-                        # Get AI response with context
+                        # Build conversation history for context
+                        conversation_history = []
+                        if target_data.get('messages'):
+                            # Get last 10 messages for context
+                            recent_messages = target_data['messages'][-10:]
+                            for msg in recent_messages:
+                                conversation_history.append({
+                                    'text': msg.get('text', ''),
+                                    'index': msg.get('index', 0)
+                                })
+
+                        # Get AI response with full conversation context
                         context = {
                             'chat_name': selected_chat,
-                            'message_count': target_data.get('message_count', 0)
+                            'message_count': target_data.get('message_count', 0),
+                            'conversation_history': conversation_history
                         }
+
+                        logger.info(f"Generating AI response with {len(conversation_history)} messages of context")
                         ai_response = ai_service.get_chat_response(latest_msg, context)
 
                         if ai_response:
