@@ -1060,30 +1060,23 @@ def emit_current_chat_updates():
     global selected_chat
     last_emitted_chat = None
 
+    logger.info("Current chat detection thread started")
+
     while True:
         try:
             detected_chat = None
 
-            # Only try to detect if cursor is focused on WeChat window
+            # Try to detect current chat if WeChat is running and frontmost
             if wechat_service.is_wechat_running():
-                # Check if WeChat is frontmost and cursor is in window
+                # Check if WeChat is frontmost (active window)
                 is_frontmost = wechat_service.is_wechat_frontmost()
-                window_info = wechat_service.get_wechat_window_info()
 
-                if is_frontmost and window_info:
-                    # Check cursor position
-                    cursor_pos = wechat_service.get_cursor_position()
-                    if cursor_pos:
-                        # Check if cursor is within WeChat window bounds
-                        x, y = cursor_pos['x'], cursor_pos['y']
-                        wx, wy = window_info['x'], window_info['y']
-                        ww, wh = window_info['width'], window_info['height']
+                logger.debug(f"WeChat running: True, frontmost: {is_frontmost}")
 
-                        cursor_in_window = (wx <= x <= wx + ww) and (wy <= y <= wy + wh)
-
-                        if cursor_in_window:
-                            # Only now try to detect the chat
-                            detected_chat = wechat_service.get_current_chat_name()
+                if is_frontmost:
+                    # Detect the current chat from WeChat UI
+                    detected_chat = wechat_service.get_current_chat_name()
+                    logger.debug(f"Detected chat: {detected_chat}")
 
             # Use detected chat if available, otherwise use selected_chat
             current_chat = detected_chat or selected_chat or "No active chat"
@@ -1097,11 +1090,13 @@ def emit_current_chat_updates():
                     'timestamp': time.time()
                 })
                 last_emitted_chat = current_chat
-                logger.debug(f"Current chat update: {current_chat} (detected={detected_chat is not None})")
+                logger.info(f"Current chat update: {current_chat} (detected={detected_chat is not None})")
 
             time.sleep(1)  # Update every second
         except Exception as e:
             logger.error(f"Error emitting current chat update: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             time.sleep(5)  # Wait longer on error
 
 

@@ -681,6 +681,38 @@ class WeChatService:
         logger.info(f"Structured {len(structured_chats)} chats")
         return structured_chats
 
+    def search_chats(self, query: str, max_results: int = 5) -> List[Dict]:
+        """
+        Search for chats by name
+
+        Args:
+            query: Search query string
+            max_results: Maximum number of results to return
+
+        Returns:
+            List of matching chat dictionaries
+        """
+        try:
+            # Get all available chats
+            all_chats = self.scan_chats_structured(max_chats=20)
+
+            # Filter chats by query (case-insensitive)
+            query_lower = query.lower()
+            matching_chats = [
+                chat for chat in all_chats
+                if query_lower in chat['name'].lower()
+            ]
+
+            # Limit results
+            results = matching_chats[:max_results]
+
+            logger.info(f"Search for '{query}' found {len(matching_chats)} matches, returning {len(results)}")
+            return results
+
+        except Exception as e:
+            logger.error(f"Error searching chats: {e}")
+            return []
+
     def scan_conversation_history(self, chat_name: str = None, max_messages: int = 50) -> Optional[Dict]:
         """
         Scan and analyze conversation history from a chat
