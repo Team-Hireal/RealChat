@@ -1,5 +1,6 @@
 #!/usr/bin/osascript
 -- Get the currently active chat name from WeChat
+-- Improved version with better detection logic
 
 on escapeJSON(theText)
     set theText to my replaceText(theText, "\\", "\\\\")
@@ -38,13 +39,27 @@ on run
                     -- Try to find chat name in UI elements using entire contents
                     try
                         set allElements to entire contents
-                        set skipLabels to {"WeChat", "微信", "Chats", "Contacts", "Favorites", "Official Accounts", "Mini Programs", "Me", "Search", ""}
+                        set skipLabels to {"WeChat", "微信", "Chats", "Contacts", "Favorites", "Official Accounts", "Mini Programs", "Me", "Search", "", "Transactions", "Payment Services", "Coupon", "WeChat Payment"}
+
+                        -- Special handling for File Transfer chat
+                        set fileTransferNames to {"File Transfer", "文件传输助手", "文件传输", "FileTransfer"}
+
+                        -- Collect all potential chat names (not just the first one)
+                        set potentialNames to {}
 
                         repeat with elem in allElements
                             try
                                 if role of elem is "AXStaticText" then
                                     set textValue to value of elem
                                     if textValue is not missing value and textValue is not "" then
+                                        -- Check if this is File Transfer (special case)
+                                        repeat with ftName in fileTransferNames
+                                            if textValue contains ftName then
+                                                set escapedText to my escapeJSON(textValue)
+                                                return "{\"success\": true, \"chat\": \"" & escapedText & "\", \"detected\": true}"
+                                            end if
+                                        end repeat
+
                                         -- Check if this text should be skipped
                                         set shouldSkip to false
                                         repeat with skipLabel in skipLabels
@@ -54,7 +69,7 @@ on run
                                             end if
                                         end repeat
 
-                                        -- Skip message count indicators (e.g., "3 new messages", "1 unread message")
+                                        -- Skip message count indicators
                                         if not shouldSkip then
                                             if textValue contains "new message" or textValue contains "unread message" or textValue contains "条新消息" or textValue contains "条未读" then
                                                 set shouldSkip to true
@@ -63,14 +78,20 @@ on run
 
                                         -- Skip very short text (likely UI labels)
                                         if not shouldSkip and length of textValue > 1 then
-                                            -- Found a potential chat name
-                                            set escapedText to my escapeJSON(textValue)
-                                            return "{\"success\": true, \"chat\": \"" & escapedText & "\", \"detected\": true}"
+                                            -- Add to potential names
+                                            set end of potentialNames to textValue
                                         end if
                                     end if
                                 end if
                             end try
                         end repeat
+
+                        -- Return the first potential name (if any)
+                        if (count of potentialNames) > 0 then
+                            set chatName to item 1 of potentialNames
+                            set escapedText to my escapeJSON(chatName)
+                            return "{\"success\": true, \"chat\": \"" & escapedText & "\", \"detected\": true}"
+                        end if
                     end try
 
                     -- No chat detected

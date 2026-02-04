@@ -11,6 +11,12 @@
   margin-bottom: 20px;
 }
 
+.chatbox-section {
+  height: 600px;
+  margin-bottom: 30px;
+}
+
+
 .section-title {
   font-size: 14px;
   font-weight: 600;

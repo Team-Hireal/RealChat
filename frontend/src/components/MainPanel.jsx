@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import apiService from '../services/api';
 import CurrentChatDisplay from './CurrentChatDisplay';
+import ChatBox from './ChatBox';
 import './MainPanel.css';
 
 const MainPanel = () => {
@@ -71,9 +72,14 @@ const MainPanel = () => {
       {/* Current Chat Display */}
       <CurrentChatDisplay />
 
+      {/* AI ChatBox */}
+      <div className="section chatbox-section">
+        <ChatBox />
+      </div>
+
       {/* Send Message */}
       <div className="section">
-        <h3 className="section-title">Send Message</h3>
+        <h3 className="section-title">Send Message to WeChat</h3>
         <div className="message-box">
           <input
             type="text"

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import apiService from '../services/api';
+import AISettings from './AISettings';
 import './Sidebar.css';
 
 const Sidebar = () => {
@@ -95,6 +96,9 @@ const Sidebar = () => {
 
   return (
     <div className="sidebar">
+      {/* AI Settings */}
+      <AISettings />
+
       {/* Agent Control */}
       <div className="section">
         <h3 className="section-title">Agent Control</h3>

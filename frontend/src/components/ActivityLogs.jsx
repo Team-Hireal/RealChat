@@ -38,7 +38,7 @@ const ActivityLogs = () => {
           <div className="empty-state">No logs yet. Start the bot to see activity.</div>
         ) : (
           logs.map((log, index) => (
-            <div key={index} className={`log-entry ${getLogClass(log.level)}`}>
+            <div key={index} className={`log-entry ${getLogClass(log.type || log.level || 'info')}`}>
               <span className="log-timestamp">{log.timestamp}</span>
               <span className="log-message">{log.message}</span>
             </div>

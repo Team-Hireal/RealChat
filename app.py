@@ -38,6 +38,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 # Configuration file path
 CONFIG_FILE = Path.home() / '.wechat_autoreply_config'
 TRACKING_FILE = Path.home() / '.wechat_autoreply_tracking'
+AI_SETTINGS_FILE = Path.home() / '.wechat_ai_settings.json'
 
 # Global state
 bot_process = None
@@ -87,6 +88,58 @@ def save_config(config):
     with open(CONFIG_FILE, 'w') as f:
         for key, value in config.items():
             f.write(f"{key}={value}\n")
+
+
+def load_ai_settings():
+    """Load AI settings from JSON file"""
+    if not AI_SETTINGS_FILE.exists():
+        return {
+            'api_key': '',
+            'base_url': 'https://api.anthropic.com',
+            'model': 'claude-sonnet-4-5-20250929'
+        }
+
+    try:
+        with open(AI_SETTINGS_FILE, 'r') as f:
+            settings = json.load(f)
+
+            # Migrate old format to new unified format
+            if 'claude_api_key' in settings:
+                # Old format detected, migrate to new format
+                return {
+                    'api_key': settings.get('claude_api_key', ''),
+                    'base_url': settings.get('claude_base_url', 'https://api.anthropic.com'),
+                    'model': settings.get('claude_model', 'claude-sonnet-4-5-20250929')
+                }
+
+            # New unified format
+            if 'api_key' not in settings:
+                settings['api_key'] = ''
+            if 'base_url' not in settings:
+                settings['base_url'] = 'https://api.anthropic.com'
+            if 'model' not in settings:
+                settings['model'] = 'claude-sonnet-4-5-20250929'
+
+            return settings
+    except Exception as e:
+        print(f"Error loading AI settings: {e}")
+        return {
+            'api_key': '',
+            'base_url': 'https://api.anthropic.com',
+            'model': 'claude-sonnet-4-5-20250929'
+        }
+
+
+def save_ai_settings(settings):
+    """Save AI settings to JSON file"""
+    try:
+        with open(AI_SETTINGS_FILE, 'w') as f:
+            json.dump(settings, f, indent=2)
+        return True
+    except Exception as e:
+        print(f"Error saving AI settings: {e}")
+        return False
+
 
 
 def add_log(message, level='info'):
@@ -706,6 +759,282 @@ def set_ai_provider():
         return jsonify(response.json())
     except Exception as e:
         add_log(f'Failed to change AI provider: {str(e)}', 'error')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/chat', methods=['POST'])
+def chat_with_ai():
+    """Chat with Claude or Zypher AI"""
+    try:
+        data = request.json
+        message = data.get('message', '')
+        model = data.get('model', 'claude')
+        history = data.get('history', [])
+
+        if not message:
+            return jsonify({'success': False, 'error': 'Message is required'}), 400
+
+        # Load AI settings (unified format)
+        ai_settings = load_ai_settings()
+
+        # Check if API key is configured
+        if not ai_settings.get('api_key'):
+            return jsonify({
+                'success': False,
+                'error': 'Please configure API key in settings'
+            }), 400
+
+        # Try to use actual API if anthropic is available
+        try:
+            from anthropic import Anthropic
+
+            client = Anthropic(
+                api_key=ai_settings['api_key'],
+                base_url=ai_settings.get('base_url', 'https://api.anthropic.com')
+            )
+
+            # Convert history to Claude format
+            messages = []
+            for msg in history:
+                if msg.get('role') in ['user', 'assistant']:
+                    messages.append({
+                        'role': msg['role'],
+                        'content': msg['content']
+                    })
+
+            # Add current message
+            messages.append({
+                'role': 'user',
+                'content': message
+            })
+
+            # Call Claude API with configured model
+            model_name = ai_settings.get('model', 'claude-sonnet-4-5-20250929')
+            response = client.messages.create(
+                model=model_name,
+                max_tokens=2048,
+                messages=messages
+            )
+
+            response_text = response.content[0].text
+            add_log(f'AI responded to: {message[:50]}...', 'success')
+
+            return jsonify({
+                'success': True,
+                'response': response_text,
+                'model': model
+            })
+
+        except ImportError:
+            # Anthropic package not installed
+            return jsonify({
+                'success': False,
+                'error': 'Anthropic package not installed. Run: pip install anthropic'
+            }), 500
+        except Exception as api_error:
+            # API call failed
+            add_log(f'AI API error: {str(api_error)}', 'error')
+            return jsonify({
+                'success': False,
+                'error': f'API error: {str(api_error)}'
+            }), 500
+
+    except Exception as e:
+        add_log(f'Chat error: {str(e)}', 'error')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/ai-settings', methods=['GET'])
+def get_ai_settings():
+    """Get AI settings"""
+    try:
+        settings = load_ai_settings()
+        return jsonify({
+            'success': True,
+            'settings': settings
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/ai-settings', methods=['POST'])
+def update_ai_settings():
+    """Update AI settings"""
+    try:
+        settings = request.json
+
+        # Validate settings - use unified format
+        required_fields = ['api_key', 'base_url', 'model']
+        for field in required_fields:
+            if field not in settings:
+                settings[field] = ''
+
+        # Save settings
+        if save_ai_settings(settings):
+            add_log('AI settings updated', 'success')
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': False, 'error': 'Failed to save settings'}), 500
+
+    except Exception as e:
+        add_log(f'Failed to update AI settings: {str(e)}', 'error')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/backend/config', methods=['GET'])
+def get_backend_config():
+    """Get backend configuration"""
+    try:
+        config = load_config()
+        return jsonify({
+            'success': True,
+            'config': {
+                'ai_model': config.get('ai_model', 'claude-sonnet-4-5-20250929'),
+                'scan_method': config.get('scan_method', 'applescript'),
+                'ai_max_tokens': int(config.get('ai_max_tokens', 1024))
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/backend/config', methods=['POST'])
+def update_backend_config():
+    """Update backend configuration"""
+    try:
+        data = request.json
+        config = load_config()
+
+        # Update config with new values
+        if 'ai_model' in data:
+            config['ai_model'] = data['ai_model']
+        if 'scan_method' in data:
+            config['scan_method'] = data['scan_method']
+        if 'ai_max_tokens' in data:
+            config['ai_max_tokens'] = str(data['ai_max_tokens'])
+
+        save_config(config)
+        add_log('Backend config updated', 'success')
+        return jsonify({'success': True})
+    except Exception as e:
+        add_log(f'Failed to update backend config: {str(e)}', 'error')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/wechat/chats/search', methods=['GET'])
+def search_chats():
+    """Search for chats by name"""
+    try:
+        query = request.args.get('q', '')
+        if not query:
+            return jsonify({'success': False, 'error': 'Query parameter required'}), 400
+
+        # Try to use the scan_chats endpoint to get all chats, then filter
+        try:
+            result = subprocess.run(
+                ['osascript', 'scripts/scan_chats.applescript'],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            if result.returncode == 0:
+                try:
+                    data = json.loads(result.stdout)
+                    if data.get('success'):
+                        chats = data.get('chats', [])
+                        # Filter chats by query
+                        filtered = [chat for chat in chats if query.lower() in chat.get('name', '').lower()]
+                        return jsonify({
+                            'success': True,
+                            'results': filtered,
+                            'count': len(filtered)
+                        })
+                except json.JSONDecodeError:
+                    pass
+        except Exception:
+            pass
+
+        # If script fails, return a simple match based on query
+        # This allows the UI to continue working even if we can't scan chats
+        return jsonify({
+            'success': True,
+            'results': [{'name': query, 'type': 'chat'}],
+            'count': 1
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/wechat/send', methods=['POST'])
+def send_wechat_message():
+    """Send a message to WeChat"""
+    try:
+        data = request.json
+        chat_name = data.get('chat_name', '')
+        message = data.get('message', '')
+
+        if not chat_name or not message:
+            return jsonify({'success': False, 'error': 'chat_name and message required'}), 400
+
+        # Use the send_test_message script
+        result = subprocess.run(
+            ['osascript', 'scripts/send_message.applescript', chat_name, message],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        if result.returncode == 0:
+            try:
+                response_data = json.loads(result.stdout)
+                if response_data.get('success'):
+                    add_log(f'Message sent to {chat_name}', 'success')
+                    socketio.emit('message_sent', {'chat': chat_name, 'message': message})
+                    return jsonify({'success': True})
+            except json.JSONDecodeError:
+                pass
+
+        add_log(f'Failed to send message to {chat_name}', 'error')
+        return jsonify({'success': False, 'error': 'Failed to send message'}), 500
+    except Exception as e:
+        add_log(f'Error sending message: {str(e)}', 'error')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/wechat/read', methods=['GET'])
+def read_wechat_messages():
+    """Read messages from WeChat"""
+    try:
+        chat_name = request.args.get('chat_name', '')
+        structured = request.args.get('structured', 'false').lower() == 'true'
+
+        if not chat_name:
+            return jsonify({'success': False, 'error': 'chat_name parameter required'}), 400
+
+        # Use get_chat_messages script
+        result = subprocess.run(
+            ['osascript', 'scripts/get_chat_messages.applescript'],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        if result.returncode == 0:
+            try:
+                data = json.loads(result.stdout)
+                if data.get('success'):
+                    add_log(f'Read {data.get("count", 0)} messages from {chat_name}', 'info')
+                    return jsonify({
+                        'success': True,
+                        'messages': data.get('messages', []),
+                        'count': data.get('count', 0)
+                    })
+            except json.JSONDecodeError:
+                pass
+
+        return jsonify({'success': False, 'error': 'Failed to read messages'}), 500
+    except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
