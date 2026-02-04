@@ -1,38 +1,32 @@
 .app {
   min-height: 100vh;
   height: 100vh;
-  padding: var(--spacing-lg);
-  max-width: 1400px;
-  margin: 0 auto;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: #EDEDED;
 }
 
 .main-content {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-md);
   flex: 1;
   overflow: hidden;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 20px;
 }
 
-.content-grid {
+.control-layout {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--spacing-md);
-  align-items: start;
-  flex: 1;
+  grid-template-columns: 400px 1fr;
+  min-height: 600px;
+  height: 100%;
+  background: #FFFFFF;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   overflow: hidden;
-  min-height: 0;
-}
-
-.logs-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-md);
-  overflow: hidden;
-  min-height: 0;
 }
 
 @media (max-width: 1024px) {

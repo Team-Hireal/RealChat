@@ -21,7 +21,7 @@ pynput==1.7.6
 
 # OCR (Optional - for chat scanning)
 pytesseract==0.3.10
-Pillow==10.1.0
+Pillow>=11.0.0
 
 # Selenium (Optional - for WeChat Web)
 selenium==4.15.2

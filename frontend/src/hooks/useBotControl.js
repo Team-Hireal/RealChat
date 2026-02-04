@@ -5,14 +5,14 @@ import apiService from '../services/api';
 export const useBotControl = () => {
   const { state, dispatch } = useAppContext();
 
-  const startBot = async () => {
+  const startBot = async (chat = 'File Transfer') => {
     dispatch({ type: ACTIONS.SET_LOADING, payload: { starting: true } });
     dispatch({ type: ACTIONS.CLEAR_ERROR });
 
     try {
-      const response = await apiService.startBot();
+      const response = await apiService.startAgent(chat);
       if (response.data.success) {
-        dispatch({ type: ACTIONS.SET_BOT_STATUS, payload: { running: true } });
+        dispatch({ type: ACTIONS.SET_BOT_STATUS, payload: { running: true, agent_running: true } });
       }
     } catch (error) {
       const errorMessage = error.response?.data?.error || error.message;
@@ -27,9 +27,9 @@ export const useBotControl = () => {
     dispatch({ type: ACTIONS.CLEAR_ERROR });
 
     try {
-      const response = await apiService.stopBot();
+      const response = await apiService.stopAgent();
       if (response.data.success) {
-        dispatch({ type: ACTIONS.SET_BOT_STATUS, payload: { running: false, pid: null } });
+        dispatch({ type: ACTIONS.SET_BOT_STATUS, payload: { running: false, agent_running: false, pid: null } });
       }
     } catch (error) {
       const errorMessage = error.response?.data?.error || error.message;

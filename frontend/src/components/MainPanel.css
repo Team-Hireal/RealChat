@@ -1,0 +1,178 @@
+.main-panel {
+  padding: 30px;
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.section {
+  margin-bottom: 20px;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 15px;
+}
+
+.message-box {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.message-input {
+  flex: 1;
+  padding: 14px 18px;
+  border: 1px solid #E5E5E5;
+  border-radius: 8px;
+  font-size: 15px;
+  transition: all 0.2s ease;
+}
+
+.message-input:focus {
+  outline: none;
+  border-color: #07C160;
+}
+
+.send-btn {
+  padding: 14px 30px;
+  background: #07C160;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.send-btn:hover:not(:disabled) {
+  background: #06AE56;
+}
+
+.send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.action-btn {
+  padding: 12px;
+  background: white;
+  border: 1px solid #E5E5E5;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.action-btn:hover {
+  border-color: #D0D0D0;
+  background: #FAFAFA;
+}
+
+.log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.clear-btn {
+  padding: 8px 16px;
+  background: white;
+  border: 1px solid #E5E5E5;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.clear-btn:hover {
+  background: #FAFAFA;
+  border-color: #D0D0D0;
+}
+
+.logs-container {
+  background: #2C2C2C;
+  border-radius: 8px;
+  padding: 20px;
+  height: 500px;
+  overflow-y: auto;
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 13px;
+  color: #e0e0e0;
+  border: 1px solid #3C3C3C;
+}
+
+.log-entry {
+  padding: 8px 0;
+  border-bottom: 1px solid #333;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.log-time {
+  color: #999999;
+  margin-right: 10px;
+}
+
+.log-success {
+  color: #07C160;
+}
+
+.log-error {
+  color: #FA5151;
+}
+
+.log-info {
+  color: #10AEFF;
+}
+
+.log-warning {
+  color: #FFC300;
+}
+
+.log-message {
+  color: #07C160;
+}
+
+.logs-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.logs-container::-webkit-scrollbar-track {
+  background: #2a2a2a;
+}
+
+.logs-container::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 4px;
+}
+
+.logs-container::-webkit-scrollbar-thumb:hover {
+  background: #777;
+}

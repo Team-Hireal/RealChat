@@ -245,6 +245,19 @@ def scan_history():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route('/api/wechat/current-chat', methods=['GET'])
+def get_current_chat():
+    """Get currently selected chat"""
+    try:
+        return jsonify({
+            "success": True,
+            "chat": selected_chat or "File Transfer"
+        })
+    except Exception as e:
+        logger.error(f"Error getting current chat: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route('/api/wechat/window', methods=['GET'])
 def get_window_info():
     """Get WeChat window information"""
@@ -504,6 +517,21 @@ def send_message_api():
 # ============================================================================
 # Backend Configuration Routes
 # ============================================================================
+
+@app.route('/api/backend/status', methods=['GET'])
+def get_backend_status():
+    """Get backend system status"""
+    return jsonify({
+        "success": True,
+        "status": {
+            "agent_running": agent_running,
+            "wechat_running": wechat_service.is_wechat_running(),
+            "selected_chat": selected_chat,
+            "ai_model": ai_config['model'],
+            "scan_method": wechat_config['scan_method']
+        }
+    })
+
 
 @app.route('/api/backend/config', methods=['GET'])
 def get_backend_config():
