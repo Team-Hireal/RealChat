@@ -23,6 +23,14 @@ except ImportError:
     WECHAT_WEB_AVAILABLE = False
     print("Warning: WeChat Web automation not available. Install selenium and webdriver-manager.")
 
+# Import WeChat Service
+try:
+    from services.wechat_service import WeChatService
+    WECHAT_SERVICE_AVAILABLE = True
+except ImportError:
+    WECHAT_SERVICE_AVAILABLE = False
+    print("Warning: WeChat Service not available.")
+
 app = Flask(__name__, static_folder='frontend/dist', static_url_path='')
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -40,6 +48,15 @@ automation_method = 'desktop'  # 'desktop' or 'web'
 web_browser_started = False
 current_chat_monitor_thread = None
 current_chat_monitor_running = False
+
+# Initialize WeChat Service
+wechat_service = None
+if WECHAT_SERVICE_AVAILABLE:
+    wechat_config = {
+        'chat_names': ['File Transfer', '文件传输助手'],
+        'scan_method': 'applescript'
+    }
+    wechat_service = WeChatService(wechat_config)
 
 
 def load_config():
@@ -214,10 +231,56 @@ def update_config():
 def get_status():
     """Get bot status"""
     global bot_running, bot_process
+
+    # Check if WeChat is running
+    wechat_running = False
+    if wechat_service:
+        wechat_running = wechat_service.is_wechat_running()
+
     return jsonify({
         'running': bot_running,
+        'agent_running': bot_running,
+        'wechat_running': wechat_running,
         'pid': bot_process.pid if bot_process else None
     })
+
+
+@app.route('/api/wechat/window', methods=['GET'])
+def get_wechat_window():
+    """Get WeChat window information"""
+    if not wechat_service:
+        return jsonify({
+            'success': False,
+            'error': 'WeChat service not available'
+        }), 503
+
+    try:
+        window_info = wechat_service.get_wechat_window_info()
+        cursor_pos = wechat_service.get_cursor_position()
+        window_under_cursor = wechat_service.get_window_under_cursor()
+        is_focused = wechat_service.verify_wechat_active_and_focused()
+
+        if window_info:
+            return jsonify({
+                'success': True,
+                'window': window_info,
+                'cursor': cursor_pos,
+                'window_under_cursor': window_under_cursor,
+                'is_running': True,
+                'is_focused': is_focused,
+                'cursor_in_window': window_under_cursor and window_under_cursor.get('process_name') == 'WeChat'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'WeChat window not found',
+                'is_running': wechat_service.is_wechat_running()
+            }), 404
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 @app.route('/api/logs', methods=['GET'])
@@ -626,9 +689,16 @@ def set_ai_provider():
 # ============================================================================
 
 @socketio.on('connect')
-def handle_connect():
-    """Handle client connection"""
+def handle_connect_and_start_monitor():
+    """Handle client connection and ensure monitor is running"""
+    global current_chat_monitor_running
+
     print('🔌 Client connected to Socket.IO')
+
+    # Start monitor if not already running
+    if not current_chat_monitor_running:
+        start_chat_monitor()
+
     # Send initial chat state
     result = get_current_chat()
     if result.get('success'):
@@ -656,24 +726,15 @@ def handle_disconnect():
 if __name__ == '__main__':
     add_log('Web interface started', 'success')
 
-    # Only show startup message and start monitor in the reloader child process
-    # or when reloader is disabled
-    import sys
-    is_reloader_child = os.environ.get('WERKZEUG_RUN_MAIN') == 'true'
-
-    if is_reloader_child or '--no-reload' in sys.argv:
-        print('=' * 50)
-        print('WeChat Auto-Reply Bot - Web Interface')
-        print('=' * 50)
-        print('')
-        print('Open your browser and go to:')
-        print('  http://localhost:5001')
-        print('')
-        print('Press Ctrl+C to stop the server')
-        print('=' * 50)
-
-        # Start the current chat monitor
-        start_chat_monitor()
+    print('=' * 50)
+    print('WeChat Auto-Reply Bot - Web Interface')
+    print('=' * 50)
+    print('')
+    print('Open your browser and go to:')
+    print('  http://localhost:5001')
+    print('')
+    print('Press Ctrl+C to stop the server')
+    print('=' * 50)
 
     # Use socketio.run instead of app.run
     socketio.run(app, debug=True, host='127.0.0.1', port=5001, allow_unsafe_werkzeug=True)
