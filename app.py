@@ -7,6 +7,7 @@ Supports both desktop app automation and WeChat Web
 
 from flask import Flask, render_template, jsonify, request, send_from_directory
 from flask_cors import CORS
+from flask_socketio import SocketIO, emit
 import subprocess
 import os
 import json
@@ -24,6 +25,7 @@ except ImportError:
 
 app = Flask(__name__, static_folder='frontend/dist', static_url_path='')
 CORS(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Configuration file path
 CONFIG_FILE = Path.home() / '.wechat_autoreply_config'
@@ -36,6 +38,8 @@ bot_logs = []
 MAX_LOGS = 100
 automation_method = 'desktop'  # 'desktop' or 'web'
 web_browser_started = False
+current_chat_monitor_thread = None
+current_chat_monitor_running = False
 
 
 def load_config():
@@ -80,6 +84,101 @@ def add_log(message, level='info'):
     # Keep only last MAX_LOGS messages
     if len(bot_logs) > MAX_LOGS:
         bot_logs = bot_logs[-MAX_LOGS:]
+
+
+def get_current_chat():
+    """Get the currently active chat name from WeChat using AppleScript"""
+    try:
+        script_path = os.path.join(os.path.dirname(__file__), 'scripts', 'get_current_chat.applescript')
+        result = subprocess.run(
+            ['osascript', script_path],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+
+        if result.returncode != 0:
+            return {'success': False, 'error': result.stderr or 'Unknown error'}
+
+        # Parse JSON output
+        try:
+            output = json.loads(result.stdout.strip())
+            return output
+        except json.JSONDecodeError as e:
+            return {'success': False, 'error': f'Invalid JSON: {str(e)}'}
+
+    except subprocess.TimeoutExpired:
+        return {'success': False, 'error': 'Timeout'}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+
+def monitor_current_chat():
+    """Background thread to monitor the current chat and emit updates via Socket.IO"""
+    global current_chat_monitor_running
+    last_chat = None
+    error_count = 0
+    max_errors = 5
+
+    print("🔍 Starting current chat monitor...")
+
+    while current_chat_monitor_running:
+        try:
+            result = get_current_chat()
+
+            if result.get('success'):
+                chat_name = result.get('chat', 'No active chat')
+                detected = result.get('detected', False)
+
+                # Only emit if chat changed
+                if chat_name != last_chat:
+                    last_chat = chat_name
+                    data = {
+                        'chat': chat_name,
+                        'detected': detected
+                    }
+
+                    # Use app context for background thread emit
+                    with app.app_context():
+                        socketio.emit('current_chat_update', data)
+                        print(f"📤 Emitted chat update: {data}")
+
+                # Reset error count on success
+                error_count = 0
+            else:
+                error_count += 1
+                print(f"⚠️  Error getting chat (attempt {error_count}/{max_errors}): {result.get('error')}")
+                if error_count >= max_errors:
+                    # Emit error state after multiple failures
+                    with app.app_context():
+                        socketio.emit('current_chat_update', {
+                            'chat': 'No active chat',
+                            'detected': False
+                        })
+                    last_chat = None
+                    error_count = 0  # Reset to try again
+
+        except Exception as e:
+            print(f"❌ Error in chat monitor: {e}")
+            error_count += 1
+
+        # Wait before next check (poll every 2 seconds)
+        time.sleep(2)
+
+    print("🛑 Current chat monitor stopped")
+
+
+def start_chat_monitor():
+    """Start the background thread to monitor current chat"""
+    global current_chat_monitor_thread, current_chat_monitor_running
+
+    if current_chat_monitor_running:
+        return
+
+    current_chat_monitor_running = True
+    current_chat_monitor_thread = threading.Thread(target=monitor_current_chat, daemon=True)
+    current_chat_monitor_thread.start()
+    print("✅ Current chat monitor started")
 
 
 @app.route('/')
@@ -522,15 +621,59 @@ def set_ai_provider():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# ============================================================================
+# Socket.IO Event Handlers
+# ============================================================================
+
+@socketio.on('connect')
+def handle_connect():
+    """Handle client connection"""
+    print('🔌 Client connected to Socket.IO')
+    # Send initial chat state
+    result = get_current_chat()
+    if result.get('success'):
+        data = {
+            'chat': result.get('chat', 'No active chat'),
+            'detected': result.get('detected', False)
+        }
+        emit('current_chat_update', data)
+        print(f'📤 Sent initial state to client: {data}')
+    else:
+        data = {
+            'chat': 'No active chat',
+            'detected': False
+        }
+        emit('current_chat_update', data)
+        print(f'📤 Sent error state to client: {data}')
+
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    """Handle client disconnection"""
+    print('🔌 Client disconnected from Socket.IO')
+
+
 if __name__ == '__main__':
     add_log('Web interface started', 'success')
-    print('=' * 50)
-    print('WeChat Auto-Reply Bot - Web Interface')
-    print('=' * 50)
-    print('')
-    print('Open your browser and go to:')
-    print('  http://localhost:5001')
-    print('')
-    print('Press Ctrl+C to stop the server')
-    print('=' * 50)
-    app.run(debug=True, host='127.0.0.1', port=5001)
+
+    # Only show startup message and start monitor in the reloader child process
+    # or when reloader is disabled
+    import sys
+    is_reloader_child = os.environ.get('WERKZEUG_RUN_MAIN') == 'true'
+
+    if is_reloader_child or '--no-reload' in sys.argv:
+        print('=' * 50)
+        print('WeChat Auto-Reply Bot - Web Interface')
+        print('=' * 50)
+        print('')
+        print('Open your browser and go to:')
+        print('  http://localhost:5001')
+        print('')
+        print('Press Ctrl+C to stop the server')
+        print('=' * 50)
+
+        # Start the current chat monitor
+        start_chat_monitor()
+
+    # Use socketio.run instead of app.run
+    socketio.run(app, debug=True, host='127.0.0.1', port=5001, allow_unsafe_werkzeug=True)

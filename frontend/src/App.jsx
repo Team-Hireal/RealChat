@@ -24,6 +24,21 @@ function AppContent() {
 
     socket.on('connect', () => {
       console.log('✅ Connected to Flask Socket.IO');
+      dispatch({ type: ACTIONS.SET_SOCKET_CONNECTED, payload: true });
+    });
+
+    socket.on('disconnect', () => {
+      console.log('❌ Disconnected from Flask Socket.IO');
+      dispatch({ type: ACTIONS.SET_SOCKET_CONNECTED, payload: false });
+    });
+
+    // Listen for current chat updates
+    socket.on('current_chat_update', (data) => {
+      console.log('📱 Current chat update:', data);
+      dispatch({
+        type: ACTIONS.SET_CURRENT_CHAT,
+        payload: data
+      });
     });
 
     socket.on('bridge_message', (data) => {
@@ -70,10 +85,6 @@ function AppContent() {
           timestamp: Date.now()
         }
       });
-    });
-
-    socket.on('disconnect', () => {
-      console.log('❌ Disconnected from Flask Socket.IO');
     });
 
     return () => {

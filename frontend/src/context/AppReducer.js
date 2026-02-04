@@ -8,6 +8,8 @@ export const ACTIONS = {
   SET_LOADING: 'SET_LOADING',
   SET_ERROR: 'SET_ERROR',
   CLEAR_ERROR: 'CLEAR_ERROR',
+  SET_CURRENT_CHAT: 'SET_CURRENT_CHAT',
+  SET_SOCKET_CONNECTED: 'SET_SOCKET_CONNECTED',
 };
 
 // Initial state
@@ -36,6 +38,11 @@ export const initialState = {
     stopping: false,
   },
   error: null,
+  currentChat: {
+    chat: 'No active chat',
+    detected: false,
+  },
+  socketConnected: false,
 };
 
 // Reducer
@@ -90,6 +97,18 @@ export const appReducer = (state, action) => {
       return {
         ...state,
         error: null,
+      };
+
+    case ACTIONS.SET_CURRENT_CHAT:
+      return {
+        ...state,
+        currentChat: action.payload,
+      };
+
+    case ACTIONS.SET_SOCKET_CONNECTED:
+      return {
+        ...state,
+        socketConnected: action.payload,
       };
 
     default:
