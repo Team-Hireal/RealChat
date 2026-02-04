@@ -134,21 +134,38 @@ def monitor_current_chat():
     """Background thread to monitor the current chat and emit updates via Socket.IO"""
     global current_chat_monitor_running
     last_chat = None
+    last_cursor_in_wechat = False
     error_count = 0
     max_errors = 5
 
-    print("🔍 Starting current chat monitor...")
+    print("🔍 Starting current chat monitor with cursor-triggered updates...")
 
     while current_chat_monitor_running:
         try:
+            # Check if cursor is in WeChat window
+            cursor_in_wechat = False
+            if wechat_service:
+                try:
+                    window_under_cursor = wechat_service.get_window_under_cursor()
+                    cursor_in_wechat = window_under_cursor and window_under_cursor.get('process_name') == 'WeChat'
+                except:
+                    pass
+
+            # Trigger immediate update if cursor just entered WeChat window
+            cursor_just_entered = cursor_in_wechat and not last_cursor_in_wechat
+
+            if cursor_just_entered:
+                print("🖱️  Cursor entered WeChat - triggering immediate chat update")
+
+            # Get current chat
             result = get_current_chat()
 
             if result.get('success'):
                 chat_name = result.get('chat', 'No active chat')
                 detected = result.get('detected', False)
 
-                # Only emit if chat changed
-                if chat_name != last_chat:
+                # Emit if chat changed OR cursor just entered WeChat
+                if chat_name != last_chat or cursor_just_entered:
                     last_chat = chat_name
                     data = {
                         'chat': chat_name,
@@ -175,12 +192,20 @@ def monitor_current_chat():
                     last_chat = None
                     error_count = 0  # Reset to try again
 
+            # Update cursor state
+            last_cursor_in_wechat = cursor_in_wechat
+
         except Exception as e:
             print(f"❌ Error in chat monitor: {e}")
             error_count += 1
 
-        # Wait before next check (poll every 2 seconds)
-        time.sleep(2)
+        # Wait before next check
+        # Use shorter interval (0.2s) when cursor is in WeChat for responsiveness
+        # Use longer interval (1s) when cursor is outside WeChat to reduce CPU usage
+        if cursor_in_wechat:
+            time.sleep(0.2)
+        else:
+            time.sleep(1.0)
 
     print("🛑 Current chat monitor stopped")
 

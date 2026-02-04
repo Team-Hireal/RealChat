@@ -54,6 +54,14 @@ on run
                                             end if
                                         end repeat
 
+                                        -- Skip message count indicators (e.g., "3 new messages", "1 unread message")
+                                        if not shouldSkip then
+                                            if textValue contains "new message" or textValue contains "unread message" or textValue contains "条新消息" or textValue contains "条未读" then
+                                                set shouldSkip to true
+                                            end if
+                                        end if
+
+                                        -- Skip very short text (likely UI labels)
                                         if not shouldSkip and length of textValue > 1 then
                                             -- Found a potential chat name
                                             set escapedText to my escapeJSON(textValue)
