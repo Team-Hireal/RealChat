@@ -11,6 +11,7 @@ import os
 import logging
 import threading
 import time
+import requests
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -171,6 +172,7 @@ def search_chats():
 @app.route('/api/wechat/send', methods=['POST'])
 def send_message():
     """Send message to WeChat"""
+    global selected_chat
     try:
         data = request.json
         message = data.get('message')
@@ -179,7 +181,20 @@ def send_message():
         if not message:
             return jsonify({"success": False, "error": "Message is required"}), 400
 
+        # Update selected chat
+        if chat_name:
+            selected_chat = chat_name
+
         success = wechat_service.send_message(message, chat_name)
+
+        # Emit chat change event
+        if success and chat_name:
+            socketio.emit('current_chat_update', {
+                'chat': chat_name,
+                'detected': False,
+                'selected': chat_name,
+                'timestamp': time.time()
+            })
 
         return jsonify({
             "success": success,
@@ -247,15 +262,27 @@ def scan_history():
 
 @app.route('/api/wechat/current-chat', methods=['GET'])
 def get_current_chat():
-    """Get currently selected chat"""
+    """Get currently selected chat from WeChat window"""
     try:
+        # Try to detect current chat from window title
+        current_chat = wechat_service.get_current_chat_name()
+
+        # Fallback to selected_chat if detection fails
+        if not current_chat:
+            current_chat = selected_chat or "No active chat"
+
         return jsonify({
             "success": True,
-            "chat": selected_chat or "File Transfer"
+            "chat": current_chat,
+            "detected": current_chat != selected_chat
         })
     except Exception as e:
         logger.error(f"Error getting current chat: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "chat": selected_chat or "Unknown"
+        }), 500
 
 
 @app.route('/api/wechat/window', methods=['GET'])
@@ -357,6 +384,13 @@ def start_agent():
         if chat_name:
             selected_chat = chat_name
             logger.info(f"Agent will monitor chat: {selected_chat}")
+            # Emit chat change event
+            socketio.emit('current_chat_update', {
+                'chat': selected_chat,
+                'detected': False,
+                'selected': selected_chat,
+                'timestamp': time.time()
+            })
 
         agent_running = True
         agent_thread = threading.Thread(target=agent_worker, daemon=True)
@@ -561,38 +595,198 @@ def get_backend_config():
 def update_backend_config():
     """Update backend configuration"""
     try:
-        data = request.json or {}
-        updated = []
+        data = request.json
 
-        # Update AI model
+        # Update AI config
         if 'ai_model' in data:
             ai_config['model'] = data['ai_model']
-            ai_service.model = data['ai_model']
-            updated.append(f"AI model: {data['ai_model']}")
+        if 'ai_max_tokens' in data:
+            ai_config['max_tokens'] = int(data['ai_max_tokens'])
 
-        # Update scan method
+        # Update WeChat config
         if 'scan_method' in data:
             wechat_config['scan_method'] = data['scan_method']
-            wechat_service.scan_method = data['scan_method']
-            updated.append(f"Scan method: {data['scan_method']}")
 
-        # Update max tokens
-        if 'ai_max_tokens' in data:
-            ai_config['max_tokens'] = str(data['ai_max_tokens'])
-            updated.append(f"Max tokens: {data['ai_max_tokens']}")
+        logger.info(f"Backend config updated: {data}")
 
         return jsonify({
             "success": True,
-            "message": f"Updated: {', '.join(updated)}",
-            "config": {
-                "ai_model": ai_config['model'],
-                "scan_method": wechat_config['scan_method'],
-                "ai_max_tokens": ai_config['max_tokens']
-            }
+            "message": "Configuration updated successfully"
         })
     except Exception as e:
-        logger.error(f"Error updating config: {e}")
+        logger.error(f"Error updating backend config: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ============================================================================
+# WeChat Bridge Integration Routes
+# ============================================================================
+
+@app.route('/api/bridge/status', methods=['GET'])
+def get_bridge_status():
+    """Get WeChat Bridge status"""
+    try:
+        import requests
+        response = requests.get('http://localhost:8081/status', timeout=2)
+        if response.ok:
+            bridge_data = response.json()
+            return jsonify({
+                "success": True,
+                "bridge": {
+                    "connected": True,
+                    "logged_in": bridge_data.get('isLoggedIn', False),
+                    "user": bridge_data.get('user'),
+                    "clients": bridge_data.get('clients', 0)
+                }
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "bridge": {"connected": False},
+                "error": "Bridge not responding"
+            })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "bridge": {"connected": False},
+            "error": str(e)
+        })
+
+
+@app.route('/api/bridge/message', methods=['POST'])
+def receive_bridge_message():
+    """Receive message from WeChat Bridge"""
+    try:
+        data = request.json
+        message_text = data.get('text', '')
+        sender = data.get('from', {})
+        room = data.get('room')
+        message_id = data.get('id')
+
+        sender_name = sender.get('name', 'Unknown')
+        chat_name = room.get('topic') if room else sender_name
+
+        logger.info(f"📨 Bridge message from {sender_name}: {message_text[:50]}...")
+
+        # Emit to frontend via Socket.IO
+        socketio.emit('bridge_message', {
+            'id': message_id,
+            'text': message_text,
+            'sender': sender_name,
+            'chat': chat_name,
+            'timestamp': data.get('timestamp'),
+            'room': room is not None
+        })
+
+        # Log activity
+        socketio.emit('log', {
+            'type': 'info',
+            'message': f"📨 Bridge: Message from {sender_name} in {chat_name}",
+            'timestamp': time.time()
+        })
+
+        # Process with AI if agent is running
+        ai_response = None
+        if agent_running:
+            try:
+                ai_response = ai_service.chat(message_text, context={
+                    'sender': sender_name,
+                    'chat': chat_name
+                })
+
+                logger.info(f"🤖 AI response: {ai_response[:50]}...")
+
+                # Emit AI response to frontend
+                socketio.emit('ai_response', {
+                    'message_id': message_id,
+                    'response': ai_response,
+                    'chat': chat_name
+                })
+
+                # Log AI response
+                socketio.emit('log', {
+                    'type': 'success',
+                    'message': f"🤖 AI responded to {sender_name}",
+                    'timestamp': time.time()
+                })
+            except Exception as e:
+                logger.error(f"Error processing with AI: {e}")
+                socketio.emit('log', {
+                    'type': 'error',
+                    'message': f"❌ AI error: {str(e)}",
+                    'timestamp': time.time()
+                })
+
+        return jsonify({
+            "success": True,
+            "response": ai_response,
+            "processed": agent_running
+        })
+
+    except Exception as e:
+        logger.error(f"Error receiving bridge message: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/bridge/send', methods=['POST'])
+def send_via_bridge():
+    """Send message via WeChat Bridge"""
+    try:
+        data = request.json
+        message = data.get('message')
+        chat_name = data.get('chat_name')
+        contact_name = data.get('contact_name')
+        room_name = data.get('room_name')
+
+        if not message:
+            return jsonify({"success": False, "error": "Message is required"}), 400
+
+        # Forward to bridge
+        import requests
+        response = requests.post('http://localhost:8081/send', json={
+            'text': message,
+            'contactName': contact_name or chat_name,
+            'roomName': room_name
+        }, timeout=5)
+
+        if response.ok:
+            result = response.json()
+
+            # Emit to frontend
+            socketio.emit('message_sent', {
+                'message': message,
+                'chat': chat_name or contact_name or room_name,
+                'via': 'bridge'
+            })
+
+            socketio.emit('log', {
+                'type': 'success',
+                'message': f"✅ Message sent via bridge to {chat_name or contact_name or room_name}",
+                'timestamp': time.time()
+            })
+
+            return jsonify({
+                "success": True,
+                "message": "Message sent via bridge"
+            })
+        else:
+            error_msg = response.json().get('error', 'Unknown error')
+            socketio.emit('log', {
+                'type': 'error',
+                'message': f"❌ Bridge send failed: {error_msg}",
+                'timestamp': time.time()
+            })
+            return jsonify({"success": False, "error": error_msg}), 500
+
+    except Exception as e:
+        logger.error(f"Error sending via bridge: {e}")
+        socketio.emit('log', {
+            'type': 'error',
+            'message': f"❌ Bridge error: {str(e)}",
+            'timestamp': time.time()
+        })
+        return jsonify({"success": False, "error": str(e)}), 500
+
 
 
 # ============================================================================
@@ -858,6 +1052,63 @@ def handle_connect():
 def handle_disconnect():
     """Handle client disconnection"""
     logger.info("Client disconnected")
+
+
+# Background task to emit current chat updates
+def emit_current_chat_updates():
+    """Background task to emit current chat updates via WebSocket"""
+    global selected_chat
+    last_emitted_chat = None
+
+    while True:
+        try:
+            detected_chat = None
+
+            # Only try to detect if cursor is focused on WeChat window
+            if wechat_service.is_wechat_running():
+                # Check if WeChat is frontmost and cursor is in window
+                is_frontmost = wechat_service.is_wechat_frontmost()
+                window_info = wechat_service.get_wechat_window_info()
+
+                if is_frontmost and window_info:
+                    # Check cursor position
+                    cursor_pos = wechat_service.get_cursor_position()
+                    if cursor_pos:
+                        # Check if cursor is within WeChat window bounds
+                        x, y = cursor_pos['x'], cursor_pos['y']
+                        wx, wy = window_info['x'], window_info['y']
+                        ww, wh = window_info['width'], window_info['height']
+
+                        cursor_in_window = (wx <= x <= wx + ww) and (wy <= y <= wy + wh)
+
+                        if cursor_in_window:
+                            # Only now try to detect the chat
+                            detected_chat = wechat_service.get_current_chat_name()
+
+            # Use detected chat if available, otherwise use selected_chat
+            current_chat = detected_chat or selected_chat or "No active chat"
+
+            # Only emit if changed to reduce network traffic
+            if current_chat != last_emitted_chat:
+                socketio.emit('current_chat_update', {
+                    'chat': current_chat,
+                    'detected': detected_chat is not None,
+                    'selected': selected_chat,
+                    'timestamp': time.time()
+                })
+                last_emitted_chat = current_chat
+                logger.debug(f"Current chat update: {current_chat} (detected={detected_chat is not None})")
+
+            time.sleep(1)  # Update every second
+        except Exception as e:
+            logger.error(f"Error emitting current chat update: {e}")
+            time.sleep(5)  # Wait longer on error
+
+
+# Start background task for current chat updates
+import threading
+current_chat_thread = threading.Thread(target=emit_current_chat_updates, daemon=True)
+current_chat_thread.start()
 
 
 # ============================================================================

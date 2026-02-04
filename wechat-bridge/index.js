@@ -1,6 +1,6 @@
 import { WechatyBuilder, ScanStatus, log } from 'wechaty';
 import { FileBox } from 'file-box';
-import WebSocket from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
 import express from 'express';
 import dotenv from 'dotenv';
 
@@ -12,6 +12,7 @@ class WeChatBridge {
       port: config.port || 8080,
       httpPort: config.httpPort || 8081,
       puppetType: config.puppetType || 'wechat',
+      flaskUrl: config.flaskUrl || 'http://localhost:5001',
       ...config
     };
 
@@ -21,6 +22,7 @@ class WeChatBridge {
     this.clients = new Set();
     this.isLoggedIn = false;
     this.currentUser = null;
+    this.messageCache = new Map(); // Cache messages for response routing
   }
 
   async start() {
@@ -59,7 +61,7 @@ class WeChatBridge {
   }
 
   startWebSocketServer() {
-    this.wsServer = new WebSocket.Server({ port: this.config.port });
+    this.wsServer = new WebSocketServer({ port: this.config.port });
 
     this.wsServer.on('connection', (ws) => {
       console.log('📱 Web client connected');
@@ -119,6 +121,59 @@ class WeChatBridge {
         user: this.currentUser,
         clients: this.clients.size
       });
+    });
+
+    // Endpoint for Flask to send messages via bridge
+    app.post('/send', async (req, res) => {
+      try {
+        const { contactId, roomId, contactName, roomName, text } = req.body;
+
+        if (!this.isLoggedIn) {
+          return res.status(400).json({ success: false, error: 'Not logged in to WeChat' });
+        }
+
+        // Send message
+        if (roomName) {
+          const room = await this.bot.Room.find({ topic: roomName });
+          if (room) {
+            await room.say(text);
+            console.log(`✅ Message sent to room: ${roomName}`);
+            res.json({ success: true, room: roomName });
+          } else {
+            res.status(404).json({ success: false, error: `Room not found: ${roomName}` });
+          }
+        } else if (contactName) {
+          const contact = await this.bot.Contact.find({ name: contactName });
+          if (contact) {
+            await contact.say(text);
+            console.log(`✅ Message sent to contact: ${contactName}`);
+            res.json({ success: true, contact: contactName });
+          } else {
+            res.status(404).json({ success: false, error: `Contact not found: ${contactName}` });
+          }
+        } else if (roomId) {
+          const room = await this.bot.Room.find({ id: roomId });
+          if (room) {
+            await room.say(text);
+            res.json({ success: true, roomId });
+          } else {
+            res.status(404).json({ success: false, error: `Room not found: ${roomId}` });
+          }
+        } else if (contactId) {
+          const contact = await this.bot.Contact.find({ id: contactId });
+          if (contact) {
+            await contact.say(text);
+            res.json({ success: true, contactId });
+          } else {
+            res.status(404).json({ success: false, error: `Contact not found: ${contactId}` });
+          }
+        } else {
+          res.status(400).json({ success: false, error: 'Either contactId, roomId, contactName, or roomName must be provided' });
+        }
+      } catch (error) {
+        console.error('Error sending message:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
     });
 
     this.httpServer = app.listen(this.config.httpPort, () => {
@@ -181,28 +236,55 @@ class WeChatBridge {
 
       // Prepare message data
       const messageData = {
-        type: 'message',
-        data: {
-          id: message.id,
-          text: text,
-          from: {
-            id: contact.id,
-            name: contact.name(),
-            alias: await contact.alias() || contact.name()
-          },
-          room: room ? {
-            id: room.id,
-            topic: await room.topic()
-          } : null,
-          timestamp: message.date().getTime(),
-          messageType: messageType
-        }
+        id: message.id,
+        text: text,
+        from: {
+          id: contact.id,
+          name: contact.name(),
+          alias: await contact.alias() || contact.name()
+        },
+        room: room ? {
+          id: room.id,
+          topic: await room.topic()
+        } : null,
+        timestamp: message.date().getTime(),
+        messageType: messageType
       };
 
       console.log(`📨 Message from ${contact.name()}: ${text.substring(0, 50)}...`);
 
-      // Forward to web app for AI processing
-      this.broadcast(messageData);
+      // Cache message for response routing
+      this.messageCache.set(message.id, message);
+
+      // Forward to Flask backend for AI processing
+      try {
+        const response = await fetch(`${this.config.flaskUrl}/api/bridge/message`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(messageData)
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log(`✅ Message forwarded to Flask: ${result.success ? 'success' : 'failed'}`);
+
+          // If Flask returns a response, send it back
+          if (result.response) {
+            await message.say(result.response);
+            console.log(`🤖 AI response sent: ${result.response.substring(0, 50)}...`);
+          }
+        } else {
+          console.error(`❌ Flask returned error: ${response.status}`);
+        }
+      } catch (error) {
+        console.error('❌ Error forwarding to Flask:', error.message);
+      }
+
+      // Also broadcast to WebSocket clients
+      this.broadcast({
+        type: 'message',
+        data: messageData
+      });
     } catch (error) {
       console.error('Error processing message:', error);
     }

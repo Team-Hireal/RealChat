@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import apiService from '../services/api';
+import CurrentChatDisplay from './CurrentChatDisplay';
 import './MainPanel.css';
 
 const MainPanel = () => {
@@ -67,6 +68,9 @@ const MainPanel = () => {
 
   return (
     <div className="main-panel">
+      {/* Current Chat Display */}
+      <CurrentChatDisplay />
+
       {/* Send Message */}
       <div className="section">
         <h3 className="section-title">Send Message</h3>

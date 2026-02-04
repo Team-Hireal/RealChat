@@ -267,6 +267,71 @@ class WeChatService:
             logger.error(f"Error getting WeChat window info: {e}")
             return None
 
+    def get_current_chat_name(self) -> Optional[str]:
+        """
+        Get the current chat name from the WeChat UI elements
+
+        Returns:
+            str: Current chat name or None if not detected
+        """
+        try:
+            # Try to get chat name from UI elements using AppleScript
+            script = '''
+            tell application "System Events"
+                tell process "WeChat"
+                    if (count of windows) = 0 then
+                        return "no_window"
+                    end if
+
+                    set mainWindow to window 1
+
+                    -- Try to get the chat name from UI elements
+                    -- WeChat typically shows the chat name in a static text element at the top
+                    try
+                        set chatNameElements to static texts of mainWindow
+                        if (count of chatNameElements) > 0 then
+                            -- The first few static text elements usually contain the chat name
+                            repeat with i from 1 to (count of chatNameElements)
+                                set elementValue to value of item i of chatNameElements
+                                if elementValue is not "" and elementValue is not "WeChat" and elementValue is not "微信" then
+                                    -- Filter out common UI elements
+                                    if elementValue does not contain "Search" and elementValue does not contain "搜索" then
+                                        return elementValue
+                                    end if
+                                end if
+                            end repeat
+                        end if
+                    end try
+
+                    -- Fallback: try to get from window title
+                    set winTitle to name of mainWindow
+                    if winTitle is not "WeChat" and winTitle is not "微信" and winTitle does not contain "(Window)" then
+                        return winTitle
+                    end if
+
+                    return "no_chat"
+                end tell
+            end tell
+            '''
+
+            result = subprocess.run(['osascript', '-e', script],
+                                  capture_output=True, text=True, timeout=5)
+            output = result.stdout.strip()
+
+            if output == "no_window" or output == "no_chat" or output == "":
+                return None
+
+            # Filter out common non-chat titles
+            non_chat_titles = ['WeChat', '微信', 'Chats', '聊天', 'WeChat (Window)']
+            if output in non_chat_titles:
+                return None
+
+            return output
+
+        except Exception as e:
+            logger.error(f"Error getting current chat name: {e}")
+            return None
+
     def ensure_wechat_ready(self) -> bool:
         """Ensure WeChat is running and ready for automation"""
         if not self.is_wechat_running():

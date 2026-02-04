@@ -8,6 +8,7 @@ import MainPanel from './components/MainPanel';
 import useConfig from './hooks/useConfig';
 import usePolling from './hooks/usePolling';
 import apiService from './services/api';
+import io from 'socket.io-client';
 import './App.css';
 
 function AppContent() {
@@ -17,6 +18,67 @@ function AppContent() {
   // Load initial data
   useEffect(() => {
     loadConfig();
+
+    // Connect to Socket.IO for real-time updates
+    const socket = io('http://localhost:5001');
+
+    socket.on('connect', () => {
+      console.log('✅ Connected to Flask Socket.IO');
+    });
+
+    socket.on('bridge_message', (data) => {
+      console.log('📨 Bridge message:', data);
+      dispatch({
+        type: ACTIONS.ADD_LOG,
+        payload: {
+          type: 'info',
+          message: `📨 Bridge: ${data.sender} in ${data.chat}: ${data.text.substring(0, 50)}...`,
+          timestamp: Date.now()
+        }
+      });
+    });
+
+    socket.on('ai_response', (data) => {
+      console.log('🤖 AI response:', data);
+      dispatch({
+        type: ACTIONS.ADD_LOG,
+        payload: {
+          type: 'success',
+          message: `🤖 AI responded in ${data.chat}`,
+          timestamp: Date.now()
+        }
+      });
+    });
+
+    socket.on('log', (data) => {
+      dispatch({
+        type: ACTIONS.ADD_LOG,
+        payload: {
+          type: data.type || 'info',
+          message: data.message,
+          timestamp: data.timestamp || Date.now()
+        }
+      });
+    });
+
+    socket.on('message_sent', (data) => {
+      dispatch({
+        type: ACTIONS.ADD_LOG,
+        payload: {
+          type: 'success',
+          message: `✅ Message sent to ${data.chat}${data.via ? ` via ${data.via}` : ''}`,
+          timestamp: Date.now()
+        }
+      });
+    });
+
+    socket.on('disconnect', () => {
+      console.log('❌ Disconnected from Flask Socket.IO');
+    });
+
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   // Poll for status

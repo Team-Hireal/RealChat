@@ -37,6 +37,10 @@ export const apiService = {
   readMessages: (chat) => api.get(`/wechat/read?chat_name=${encodeURIComponent(chat)}&structured=true`),
   getHistory: (chat) => api.get(`/wechat/history?chat=${chat}`),
 
+  // WeChat Bridge operations
+  getBridgeStatus: () => api.get('/bridge/status'),
+  sendViaBridge: (chat, message) => api.post('/bridge/send', { chat_name: chat, message }),
+
   // AI operations
   chatWithAI: (message, context) => api.post('/ai/chat', { message, context }),
   analyzeMessage: (message) => api.post('/ai/analyze', { message }),
