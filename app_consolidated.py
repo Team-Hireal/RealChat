@@ -255,6 +255,50 @@ def send_message():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route('/api/wechat/open-chat', methods=['POST'])
+def open_chat():
+    """Open a chat by name (programmatically double-click)"""
+    global selected_chat
+    try:
+        data = request.json
+        chat_name = data.get('chat_name')
+
+        if not chat_name:
+            return jsonify({"success": False, "error": "chat_name is required"}), 400
+
+        logger.info(f"API: Opening chat '{chat_name}'")
+
+        # Open the chat
+        success = wechat_service.open_chat(chat_name)
+
+        if success:
+            # Update selected chat
+            selected_chat = chat_name
+
+            # Emit chat change event
+            socketio.emit('current_chat_update', {
+                'chat': chat_name,
+                'detected': True,
+                'selected': chat_name,
+                'timestamp': time.time()
+            })
+
+            return jsonify({
+                "success": True,
+                "message": f"Chat '{chat_name}' opened successfully",
+                "chat": chat_name
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": f"Failed to open chat '{chat_name}'"
+            }), 500
+
+    except Exception as e:
+        logger.error(f"Error opening chat: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route('/api/wechat/read', methods=['GET'])
 def read_messages():
     """Read messages from WeChat"""

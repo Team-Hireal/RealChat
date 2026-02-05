@@ -328,6 +328,80 @@ class WeChatService:
         logger.info(f"WeChat window: {window_info['title']} ({window_info['width']}x{window_info['height']})")
         return True
 
+    def open_chat(self, chat_name: str) -> bool:
+        """
+        Open a chat by name (changes window title)
+
+        Args:
+            chat_name: Name of the chat to open
+
+        Returns:
+            bool: True if chat was opened successfully
+        """
+        try:
+            logger.info(f"Opening chat: {chat_name}")
+
+            script = f'''
+            tell application "WeChat"
+                activate
+            end tell
+            delay 0.3
+
+            tell application "System Events"
+                tell process "WeChat"
+                    -- Open search (Cmd+F)
+                    keystroke "f" using {{command down}}
+                    delay 0.2
+
+                    -- Clear search field
+                    keystroke "a" using {{command down}}
+                    delay 0.05
+                    key code 51  -- Delete
+                    delay 0.1
+
+                    -- Type chat name
+                    keystroke "{chat_name}"
+                    delay 0.3
+
+                    -- Press Down arrow to select first result
+                    key code 125  -- Down arrow
+                    delay 0.1
+
+                    -- Press Enter TWICE to open the chat
+                    key code 36  -- Enter (selects chat)
+                    delay 0.2
+                    key code 36  -- Enter (opens chat)
+                    delay 0.3
+
+                    -- Close search (ESC)
+                    key code 53  -- ESC
+                    delay 0.1
+
+                    return "SUCCESS"
+                end tell
+            end tell
+            '''
+
+            result = subprocess.run(['osascript', '-e', script],
+                                  capture_output=True, text=True,
+                                  timeout=10, check=True)
+
+            # Wait a moment for window title to update
+            time.sleep(0.5)
+
+            # Verify the chat is open by checking window title
+            current_chat = self.get_current_chat_name()
+            if current_chat and chat_name.lower() in current_chat.lower():
+                logger.info(f"✅ Chat opened successfully: {current_chat}")
+                return True
+            else:
+                logger.warning(f"⚠️ Chat may not be open. Window title: {current_chat}")
+                return False
+
+        except Exception as e:
+            logger.error(f"Error opening chat: {e}")
+            return False
+
     def send_message(self, text: str, chat_name: str = None) -> bool:
         """
         Send message to WeChat chat
@@ -345,69 +419,54 @@ class WeChatService:
             return False
 
         # Use provided chat name or default to first configured chat
-        target_chats = [chat_name] if chat_name else self.chat_names
+        target_chat = chat_name if chat_name else self.chat_names[0]
+
+        # Step 1: Open the chat (this changes the window title)
+        logger.info(f"Step 1: Opening chat '{target_chat}'")
+        if not self.open_chat(target_chat):
+            logger.error(f"Failed to open chat: {target_chat}")
+            return False
+
+        # Step 2: Send the message
+        logger.info(f"Step 2: Sending message to '{target_chat}'")
 
         # Write message to temp file
         temp_file = '/tmp/wechat_msg.txt'
         with open(temp_file, 'w', encoding='utf-8') as f:
             f.write(text)
 
-        # Try each chat name
-        for chat in target_chats:
-            # Simplified flow: Search "File" → Enter → Type → Send
-            script = f'''
-            set msg to do shell script "cat {temp_file}"
+        script = f'''
+        set msg to do shell script "cat {temp_file}"
 
-            tell application "WeChat"
-                activate
+        tell application "WeChat"
+            activate
+        end tell
+        delay 0.2
+
+        tell application "System Events"
+            tell process "WeChat"
+                -- Type message (chat should already be open)
+                keystroke msg
+                delay 0.15
+
+                -- Send message (Enter)
+                key code 36
+                delay 0.1
+
+                return "SUCCESS"
             end tell
-            delay 0.2
+        end tell
+        '''
 
-            tell application "System Events"
-                tell process "WeChat"
-                    -- Open search
-                    keystroke "f" using {{command down}}
-                    delay 0.15
-
-                    -- Clear search field
-                    keystroke "a" using {{command down}}
-                    delay 0.05
-                    key code 51  -- Delete
-                    delay 0.1
-
-                    -- Type "File" (simplified search term)
-                    keystroke "File"
-                    delay 0.2
-
-                    -- Press Enter to open chat directly
-                    key code 36  -- Enter
-                    delay 0.3
-
-                    -- Type message directly (chat should be open now)
-                    keystroke msg
-                    delay 0.15
-
-                    -- Send message
-                    key code 36  -- Enter
-                    delay 0.1
-
-                    return "SUCCESS"
-                end tell
-            end tell
-            '''
-
-            try:
-                result = subprocess.run(['osascript', '-e', script],
-                                      capture_output=True, text=True,
-                                      timeout=15, check=True)
-                logger.info(f"Message sent to {chat}")
-                return True
-            except Exception as e:
-                logger.warning(f"Failed to send to {chat}: {e}")
-                continue
-
-        logger.error("Failed to send message to any configured chat")
-        return False
+        try:
+            result = subprocess.run(['osascript', '-e', script],
+                                  capture_output=True, text=True,
+                                  timeout=10, check=True)
+            logger.info(f"✅ Message sent to {target_chat}")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to send message: {e}")
+            return False
 
     def read_last_message(self, chat_name: str = None) -> Optional[str]:
         """
