@@ -86,9 +86,7 @@ const AISettings = () => {
           onChange={(e) => handleChange('api_key', e.target.value)}
           placeholder="sk-ant-..."
         />
-        {settings.api_key && (
-          <span className="input-hint">Current: {maskApiKey(settings.api_key)}</span>
-        )}
+        
       </div>
 
       <div className="input-group">

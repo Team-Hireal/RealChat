@@ -285,29 +285,39 @@ class WeChatService:
 
                     set mainWindow to window 1
 
-                    -- Try to get the chat name from UI elements
-                    -- WeChat typically shows the chat name in a static text element at the top
-                    try
-                        set chatNameElements to static texts of mainWindow
-                        if (count of chatNameElements) > 0 then
-                            -- The first few static text elements usually contain the chat name
-                            repeat with i from 1 to (count of chatNameElements)
-                                set elementValue to value of item i of chatNameElements
-                                if elementValue is not "" and elementValue is not "WeChat" and elementValue is not "微信" then
-                                    -- Filter out common UI elements
-                                    if elementValue does not contain "Search" and elementValue does not contain "搜索" then
-                                        return elementValue
-                                    end if
-                                end if
-                            end repeat
-                        end if
-                    end try
-
-                    -- Fallback: try to get from window title
+                    -- Try window title first (fastest)
                     set winTitle to name of mainWindow
                     if winTitle is not "WeChat" and winTitle is not "微信" and winTitle does not contain "(Window)" then
                         return winTitle
                     end if
+
+                    -- Get UI elements and search for chat name
+                    try
+                        set allElements to entire contents of mainWindow
+                        set elementCount to count of allElements
+
+                        -- Limit search to first 100 elements for speed
+                        if elementCount > 100 then
+                            set elementCount to 100
+                        end if
+
+                        repeat with i from 1 to elementCount
+                            try
+                                set elem to item i of allElements
+                                set elemValue to value of elem
+                                -- Look for chat names (skip empty, very short, or very long values)
+                                if elemValue is not missing value then
+                                    set valueLength to length of elemValue
+                                    if valueLength > 3 and valueLength < 50 then
+                                        -- Skip common UI labels
+                                        if elemValue does not contain "⌘" and elemValue does not contain "(" then
+                                            return elemValue
+                                        end if
+                                    end if
+                                end if
+                            end try
+                        end repeat
+                    end try
 
                     return "no_chat"
                 end tell
@@ -315,7 +325,7 @@ class WeChatService:
             '''
 
             result = subprocess.run(['osascript', '-e', script],
-                                  capture_output=True, text=True, timeout=5)
+                                  capture_output=True, text=True, timeout=10)
             output = result.stdout.strip()
 
             if output == "no_window" or output == "no_chat" or output == "":

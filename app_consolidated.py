@@ -8,6 +8,7 @@ from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 import os
+import json
 import logging
 import threading
 import time
@@ -61,6 +62,55 @@ last_message = ""
 selected_chat = None  # Store selected chat for agent
 DEFAULT_COMMAND_CHAT = "File Transfer"  # Actual chat name for File Transfer
 DEFAULT_SEARCH_TERM = "File"  # Search term to find File Transfer chat
+
+# AI Settings file
+AI_SETTINGS_FILE = Path('ai_settings.json')
+
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+def load_ai_settings():
+    """Load AI settings from JSON file"""
+    if not AI_SETTINGS_FILE.exists():
+        return {
+            'api_key': '',
+            'base_url': 'https://api.anthropic.com',
+            'model': 'claude-sonnet-4-5-20250929'
+        }
+
+    try:
+        with open(AI_SETTINGS_FILE, 'r') as f:
+            settings = json.load(f)
+
+            # Ensure all required fields exist
+            if 'api_key' not in settings:
+                settings['api_key'] = ''
+            if 'base_url' not in settings:
+                settings['base_url'] = 'https://api.anthropic.com'
+            if 'model' not in settings:
+                settings['model'] = 'claude-sonnet-4-5-20250929'
+
+            return settings
+    except Exception as e:
+        logger.error(f"Error loading AI settings: {e}")
+        return {
+            'api_key': '',
+            'base_url': 'https://api.anthropic.com',
+            'model': 'claude-sonnet-4-5-20250929'
+        }
+
+
+def save_ai_settings(settings):
+    """Save AI settings to JSON file"""
+    try:
+        with open(AI_SETTINGS_FILE, 'w') as f:
+            json.dump(settings, f, indent=2)
+        return True
+    except Exception as e:
+        logger.error(f"Error saving AI settings: {e}")
+        return False
 
 
 # ============================================================================
@@ -818,6 +868,126 @@ def save_config():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route('/api/ai-settings', methods=['GET'])
+def get_ai_settings():
+    """Get AI settings"""
+    try:
+        settings = load_ai_settings()
+        return jsonify({
+            'success': True,
+            'settings': settings
+        })
+    except Exception as e:
+        logger.error(f"Error getting AI settings: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/ai-settings', methods=['POST'])
+def update_ai_settings():
+    """Update AI settings"""
+    try:
+        settings = request.json
+
+        # Validate settings
+        required_fields = ['api_key', 'base_url', 'model']
+        for field in required_fields:
+            if field not in settings:
+                settings[field] = ''
+
+        # Save settings
+        if save_ai_settings(settings):
+            logger.info('AI settings updated')
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': False, 'error': 'Failed to save settings'}), 500
+
+    except Exception as e:
+        logger.error(f'Failed to update AI settings: {e}')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/chat', methods=['POST'])
+def chat_with_ai():
+    """Chat with Claude AI"""
+    try:
+        data = request.json
+        message = data.get('message', '')
+        model = data.get('model', 'claude')
+        history = data.get('history', [])
+
+        if not message:
+            return jsonify({'success': False, 'error': 'Message is required'}), 400
+
+        # Load AI settings
+        ai_settings = load_ai_settings()
+
+        # Check if API key is configured
+        if not ai_settings.get('api_key'):
+            return jsonify({
+                'success': False,
+                'error': 'Please configure API key in settings'
+            }), 400
+
+        # Try to use Anthropic API
+        try:
+            from anthropic import Anthropic
+
+            client = Anthropic(
+                api_key=ai_settings['api_key'],
+                base_url=ai_settings.get('base_url', 'https://api.anthropic.com')
+            )
+
+            # Convert history to Claude format
+            messages = []
+            for msg in history:
+                if msg.get('role') in ['user', 'assistant']:
+                    messages.append({
+                        'role': msg['role'],
+                        'content': msg['content']
+                    })
+
+            # Add current message
+            messages.append({
+                'role': 'user',
+                'content': message
+            })
+
+            # Call Claude API with configured model
+            model_name = ai_settings.get('model', 'claude-sonnet-4-5-20250929')
+            response = client.messages.create(
+                model=model_name,
+                max_tokens=2048,
+                messages=messages
+            )
+
+            response_text = response.content[0].text
+            logger.info(f'AI responded to: {message[:50]}...')
+
+            return jsonify({
+                'success': True,
+                'response': response_text,
+                'model': model
+            })
+
+        except ImportError:
+            # Anthropic package not installed
+            return jsonify({
+                'success': False,
+                'error': 'Anthropic package not installed. Run: pip install anthropic'
+            }), 500
+        except Exception as api_error:
+            # API call failed
+            logger.error(f'AI API error: {api_error}')
+            return jsonify({
+                'success': False,
+                'error': f'API error: {str(api_error)}'
+            }), 500
+
+    except Exception as e:
+        logger.error(f'Chat error: {e}')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/logs', methods=['GET'])
 def get_logs():
     """Get bot logs (legacy endpoint)"""
@@ -1066,17 +1236,11 @@ def emit_current_chat_updates():
         try:
             detected_chat = None
 
-            # Try to detect current chat if WeChat is running and frontmost
+            # Try to detect current chat if WeChat is running
             if wechat_service.is_wechat_running():
-                # Check if WeChat is frontmost (active window)
-                is_frontmost = wechat_service.is_wechat_frontmost()
-
-                logger.debug(f"WeChat running: True, frontmost: {is_frontmost}")
-
-                if is_frontmost:
-                    # Detect the current chat from WeChat UI
-                    detected_chat = wechat_service.get_current_chat_name()
-                    logger.debug(f"Detected chat: {detected_chat}")
+                # Detect the current chat from WeChat UI
+                detected_chat = wechat_service.get_current_chat_name()
+                logger.debug(f"Detected chat: {detected_chat}")
 
             # Use detected chat if available, otherwise use selected_chat
             current_chat = detected_chat or selected_chat or "No active chat"

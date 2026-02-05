@@ -102,6 +102,24 @@ function AppContent() {
     }
   }, 2000, true);
 
+  // Poll for current chat - 4 times per second
+  usePolling(async () => {
+    try {
+      const chatRes = await apiService.getCurrentChat();
+      if (chatRes.data.success) {
+        dispatch({
+          type: ACTIONS.SET_CURRENT_CHAT,
+          payload: {
+            chat: chatRes.data.chat || 'No active chat',
+            detected: chatRes.data.detected || false
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Current chat polling error:', error);
+    }
+  }, 250, true);
+
   return (
     <div className="app">
       <Header />

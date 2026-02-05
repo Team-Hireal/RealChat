@@ -112,6 +112,7 @@
   border: 1px solid #e9ecef;
   margin-right: auto;
   border-bottom-left-radius: 4px;
+  color: black;
 }
 
 .message-error {
