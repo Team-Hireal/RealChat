@@ -89,12 +89,36 @@ class WeChatOCR:
 
             logger.info(f"WeChat window at: x={x}, y={y}, w={w}, h={h}")
 
-            # Calculate message area (right side, excluding sidebar and input)
-            # Sidebar is ~30% of width, input area is ~100px at bottom
-            msg_x = x + int(w * 0.3)  # Start after sidebar
-            msg_y = y + 80  # Below title bar
-            msg_w = int(w * 0.7) - 20  # Right side minus padding
-            msg_h = h - 180  # Exclude title and input area
+            # Adaptive message area calculation based on window size
+            # Detect window type: pop-up windows are typically narrower
+            is_popup = w < 700  # Pop-up windows are usually < 700px wide
+
+            if is_popup:
+                # Pop-up window: no sidebar, just message area
+                # Leave small margins on all sides
+                msg_x = x + 10  # Small left margin
+                msg_y = y + 60  # Below title bar (smaller for pop-ups)
+                msg_w = w - 20  # Full width minus margins
+                msg_h = h - 140  # Exclude title and input area
+                logger.info(f"Detected pop-up window (w={w})")
+            else:
+                # Main window: has sidebar on left
+                # Sidebar is approximately 30-35% of width, but adapt to actual size
+                sidebar_width = int(w * 0.32)  # Slightly adjusted
+
+                # Title bar height scales with window size
+                title_height = max(60, int(h * 0.08))  # 8% of height or 60px minimum
+
+                # Input area at bottom scales with window size
+                input_height = max(100, int(h * 0.12))  # 12% of height or 100px minimum
+
+                msg_x = x + sidebar_width + 10  # After sidebar plus small margin
+                msg_y = y + title_height
+                msg_w = w - sidebar_width - 30  # Remaining width minus margins
+                msg_h = h - title_height - input_height
+                logger.info(f"Detected main window (w={w}), sidebar={sidebar_width}px")
+
+            logger.info(f"Message area: x={msg_x}, y={msg_y}, w={msg_w}, h={msg_h}")
 
             # Capture screenshot of message area only
             cmd = [
