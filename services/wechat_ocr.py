@@ -87,7 +87,7 @@ class WeChatOCR:
             # Parse window bounds
             x, y, w, h = map(int, output.split(','))
 
-            logger.info(f"WeChat window at: x={x}, y={y}, w={w}, h={h}")
+            logger.debug(f"WeChat window at: x={x}, y={y}, w={w}, h={h}")
 
             # Calculate message area (right side, excluding sidebar and input)
             # Sidebar is ~30% of width, input area is ~100px at bottom
@@ -106,7 +106,7 @@ class WeChatOCR:
 
             result = subprocess.run(cmd, capture_output=True, timeout=10)
             if result.returncode == 0:
-                logger.info(f"Screenshot captured: {output_path}")
+                logger.debug(f"Screenshot captured: {output_path}")
                 return True
             else:
                 logger.error(f"Screenshot failed: {result.stderr}")
@@ -188,7 +188,7 @@ class WeChatOCR:
                 if result.returncode == 0:
                     # Parse JSON output
                     texts = json.loads(result.stdout.strip())
-                    logger.info(f"OCR extracted {len(texts)} text elements")
+                    logger.debug(f"OCR extracted {len(texts)} text elements")
                     return texts
                 else:
                     logger.error(f"Swift OCR failed: {result.stderr}")
@@ -279,7 +279,7 @@ class WeChatOCR:
                     if msg_text not in self.agent_messages:
                         new_messages.append(msg)
 
-                logger.info(f"Read {len(new_messages)} new messages")
+                logger.debug(f"Read {len(new_messages)} new messages")
                 return new_messages
 
             finally:

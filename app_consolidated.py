@@ -40,7 +40,8 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 # Initialize services
 wechat_config = {
     'chat_names': os.getenv('WECHAT_CHAT_NAMES', 'File Transfer,文件传输助手').split(','),
-    'scan_method': os.getenv('WECHAT_SCAN_METHOD', 'applescript')
+    'scan_method': os.getenv('WECHAT_SCAN_METHOD', 'applescript'),
+    'auto_detect_messages': False  # Auto-detect incoming messages
 }
 wechat_service = WeChatService(wechat_config)
 
@@ -717,6 +718,7 @@ def get_backend_config():
             "chat_names": wechat_config['chat_names'],
             "agent_running": agent_running,
             "selected_chat": selected_chat,
+            "auto_detect_messages": wechat_config.get('auto_detect_messages', False),
             "available_models": [
                 "claude-sonnet-4-5-20250929",
                 "claude-opus-4-5-20251101",
@@ -743,6 +745,9 @@ def update_backend_config():
         # Update WeChat config
         if 'scan_method' in data:
             wechat_config['scan_method'] = data['scan_method']
+        if 'auto_detect_messages' in data:
+            wechat_config['auto_detect_messages'] = bool(data['auto_detect_messages'])
+            logger.info(f"Auto-detect messages: {wechat_config['auto_detect_messages']}")
 
         logger.info(f"Backend config updated: {data}")
 
@@ -1317,6 +1322,8 @@ def emit_current_chat_updates():
     global selected_chat
     last_emitted_chat = None
     iteration_count = 0
+    last_messages = []  # Track last messages for deduplication
+    last_ocr_check = 0  # Rate limit OCR checks
 
     logger.info("🚀 High-frequency chat detection started (10 Hz / 100ms)")
 
@@ -1333,6 +1340,60 @@ def emit_current_chat_updates():
                 # Only log every 10 iterations (once per second) to reduce log spam
                 if iteration_count % 10 == 0:
                     logger.debug(f"[SCAN] Iteration {iteration_count}: {repr(detected_chat)}")
+
+                # Check for new messages if auto-detect is enabled
+                # Run OCR every 1 second to detect text changes
+                auto_detect_enabled = wechat_config.get('auto_detect_messages', False)
+
+                if iteration_count % 10 == 0:  # Log every second
+                    logger.info(f"[AUTO-DETECT] Enabled: {auto_detect_enabled}")
+
+                if auto_detect_enabled:
+                    current_time = time.time()
+                    # Run OCR every 1 second
+                    if current_time - last_ocr_check >= 1.0:
+                        last_ocr_check = current_time
+
+                        try:
+                            # Run OCR to extract messages (silently)
+                            messages = wechat_service.read_messages_ocr()
+
+                            if messages:
+                                # Deduplicate: only show new messages
+                                last_message_texts = {msg.get('text', '') for msg in last_messages}
+                                new_messages = [msg for msg in messages if msg.get('text', '') not in last_message_texts]
+
+                                if new_messages:
+                                    # Only log when there are NEW messages
+                                    logger.info(f"🔔 {len(new_messages)} new message(s) detected!")
+
+                                    # Emit log for new messages
+                                    socketio.emit('log', {
+                                        'type': 'info',
+                                        'message': f'📨 {len(new_messages)} new message(s) detected',
+                                        'timestamp': current_time
+                                    })
+
+                                    # Emit each new message
+                                    for msg in new_messages:
+                                        timestamp = msg.get('timestamp', 'Unknown time')
+                                        text = msg.get('text', '')
+                                        if text:  # Only emit non-empty messages
+                                            socketio.emit('log', {
+                                                'type': 'info',
+                                                'message': f'💬 [{timestamp}] {text[:100]}{"..." if len(text) > 100 else ""}',
+                                                'timestamp': current_time
+                                            })
+
+                                    logger.info(f"✅ Emitted {len(new_messages)} new messages")
+
+                                # Always update last_messages even if no new ones
+                                last_messages = messages
+
+                        except Exception as e:
+                            logger.error(f"Error running OCR scan: {e}")
+                            import traceback
+                            logger.error(traceback.format_exc())
             else:
                 if last_emitted_chat != "WeChat not running":
                     logger.warning("[MONITOR] WeChat is not running")

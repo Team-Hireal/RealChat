@@ -11,10 +11,14 @@ const MainPanel = () => {
   const [message, setMessage] = useState('');
   const [chatName, setChatName] = useState('File');
   const [isSending, setIsSending] = useState(false);
+  const [hasLogged, setHasLogged] = useState(false);
 
   useEffect(() => {
-    addLog('Control panel loaded', 'info');
-  }, []);
+    if (!hasLogged) {
+      addLog('Control panel loaded', 'info');
+      setHasLogged(true);
+    }
+  }, [hasLogged]);
 
   const addLog = (message, type = 'info') => {
     dispatch({

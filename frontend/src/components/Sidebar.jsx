@@ -13,7 +13,8 @@ const Sidebar = () => {
   const [backendConfig, setBackendConfig] = useState({
     ai_model: 'claude-sonnet-4-5-20250929',
     scan_method: 'applescript',
-    ai_max_tokens: 1024
+    ai_max_tokens: 1024,
+    auto_detect_messages: false
   });
   const [automation, setAutomation] = useState({
     auto_reply: false,
@@ -367,6 +368,19 @@ const Sidebar = () => {
             max="8192"
             step="256"
           />
+        </div>
+        <div className="toggle-group">
+          <label className="toggle-label">
+            <input
+              type="checkbox"
+              checked={backendConfig.auto_detect_messages || false}
+              onChange={(e) => updateBackendConfig({ auto_detect_messages: e.target.checked })}
+            />
+            <span className="toggle-text">Auto-Detect New Messages</span>
+          </label>
+          <small className="input-hint">
+            💡 Automatically run OCR when new messages arrive
+          </small>
         </div>
       </div>
 
