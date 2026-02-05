@@ -1372,6 +1372,11 @@ def emit_current_chat_updates():
                     if current_time - last_ocr_check >= 1.0:
                         last_ocr_check = current_time
 
+                        # Only run OCR if WeChat is the frontmost (active) window
+                        if not wechat_service.is_wechat_frontmost():
+                            logger.debug("[AUTO-DETECT] WeChat is not frontmost, skipping OCR")
+                            continue
+
                         try:
                             logger.info("[AUTO-DETECT] Running OCR scan...")
                             # Run OCR to extract messages

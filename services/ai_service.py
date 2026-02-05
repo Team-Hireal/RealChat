@@ -132,8 +132,10 @@ class AIService:
             str: AI response
         """
         # Build system prompt
-        system_prompt = "You are a friendly AI assistant helping with WeChat conversations. "
-        system_prompt += "Respond naturally and conversationally. Keep responses brief and helpful."
+        system_prompt = "IMPORTANT: You MUST start EVERY response with '[Agent]' (including the square brackets). "
+        system_prompt += "You are a friendly AI assistant helping with WeChat conversations. "
+        system_prompt += "Respond naturally and conversationally. Keep responses VERY brief (1-2 sentences max) and helpful. "
+        system_prompt += "Be concise and direct. Always start with '[Agent]'."
 
         # Add context if provided
         if context:

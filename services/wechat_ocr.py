@@ -377,19 +377,29 @@ class WeChatOCR:
                 # Parse into messages
                 messages = self.parse_messages(text_lines)
 
-                # Filter out agent's own messages using fuzzy matching
+                # Filter out agent's own messages using multiple strategies
                 new_messages = []
                 for msg in messages:
                     msg_text = msg['text']
 
-                    # Clean UI elements
+                    # FIRST: Check if message starts with [Agent] tag (before any cleaning)
+                    if msg_text.strip().startswith('[Agent]'):
+                        logger.info(f"Filtered agent message (by tag): {msg_text[:50]}...")
+                        continue
+
+                    # SECOND: Check if message contains [Agent] anywhere
+                    if '[Agent]' in msg_text:
+                        logger.info(f"Filtered agent message (contains tag): {msg_text[:50]}...")
+                        continue
+
+                    # THIRD: Clean UI elements
                     cleaned_text = self._filter_ui_elements(msg_text)
                     if not cleaned_text:
                         continue
 
                     msg['text'] = cleaned_text
 
-                    # Check if matches any agent message
+                    # FOURTH: Check if matches any agent message using fuzzy matching
                     is_agent_msg = False
                     normalized_msg = self._normalize_text(cleaned_text)
                     msg_signature = self._get_message_signature(cleaned_text)
@@ -403,7 +413,7 @@ class WeChatOCR:
                             normalized_msg in normalized_agent or
                             msg_signature == agent_signature):
                             is_agent_msg = True
-                            logger.info(f"Filtered agent message: {cleaned_text[:50]}...")
+                            logger.info(f"Filtered agent message (by match): {cleaned_text[:50]}...")
                             break
 
                     if not is_agent_msg:

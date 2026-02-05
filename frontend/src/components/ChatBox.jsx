@@ -99,6 +99,9 @@ const ChatBox = () => {
           timestamp: new Date().toLocaleTimeString()
         };
         setMessages(prev => [...prev, aiMessage]);
+
+        // Send AI response back to WeChat with [Agent] prefix
+        await sendToWeChat(data.response);
       } else {
         const errorMessage = {
           role: 'error',
@@ -117,6 +120,32 @@ const ChatBox = () => {
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const sendToWeChat = async (message) => {
+    try {
+      // Claude now adds [Agent] prefix automatically via system prompt
+      const response = await fetch('http://localhost:5001/api/wechat/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: message,  // Send as-is, Claude already added [Agent]
+          mark_as_agent: true  // Mark this as agent message for OCR filtering
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        console.log('✅ Message sent to WeChat:', message.substring(0, 50));
+      } else {
+        console.error('❌ Failed to send to WeChat:', data.error);
+      }
+    } catch (error) {
+      console.error('Error sending to WeChat:', error);
     }
   };
 
