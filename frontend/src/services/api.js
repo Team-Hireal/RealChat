@@ -35,7 +35,7 @@ export const apiService = {
   getWindowInfo: () => api.get('/wechat/window'),
   sendMessage: (chat, message) => api.post('/wechat/send', { chat_name: chat, message }),
   readMessages: (chat) => api.get(`/wechat/read?chat_name=${encodeURIComponent(chat)}&structured=true`),
-  readMessagesOCR: () => api.get('/wechat/read?ocr=true'),
+  readMessagesOCR: (loadContext = false) => api.get(`/wechat/read?ocr=true&load_context=${loadContext}`),
   getNewMessages: () => api.get('/wechat/messages/new'),
   checkNewMessages: () => api.get('/wechat/messages/check'),
   openChat: (chatName) => api.post('/wechat/open-chat', { chat_name: chatName }),

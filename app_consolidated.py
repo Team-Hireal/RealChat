@@ -307,10 +307,28 @@ def read_messages():
         chat_name = request.args.get('chat_name')
         structured = request.args.get('structured', 'false').lower() == 'true'
         use_ocr = request.args.get('ocr', 'false').lower() == 'true'
+        load_context = request.args.get('load_context', 'false').lower() == 'true'
 
         # OCR-based reading
         if use_ocr:
             messages = wechat_service.read_messages_ocr()
+
+            # If load_context is true, emit event to ChatBox
+            if load_context and messages:
+                # Combine all messages into one text block
+                context_text = '\n'.join([
+                    f"[{msg.get('timestamp', 'Unknown')}] {msg.get('text', '')}"
+                    for msg in messages
+                    if msg.get('text', '').strip()
+                ])
+
+                if context_text:
+                    socketio.emit('load_context', {
+                        'context': f"Here are the current messages from WeChat:\n\n{context_text}",
+                        'message_count': len([m for m in messages if m.get('text', '').strip()])
+                    })
+                    logger.info(f"Emitted context load event with {len(messages)} messages")
+
             return jsonify({
                 "success": True,
                 "method": "ocr",
@@ -1374,7 +1392,7 @@ def emit_current_chat_updates():
                                         'timestamp': current_time
                                     })
 
-                                    # Emit each new message
+                                    # Emit each new message to activity log
                                     for msg in new_messages:
                                         timestamp = msg.get('timestamp', 'Unknown time')
                                         text = msg.get('text', '')
@@ -1383,6 +1401,13 @@ def emit_current_chat_updates():
                                                 'type': 'info',
                                                 'message': f'💬 [{timestamp}] {text[:100]}{"..." if len(text) > 100 else ""}',
                                                 'timestamp': current_time
+                                            })
+
+                                            # Emit new message to chatbox for AI processing
+                                            socketio.emit('wechat_message', {
+                                                'timestamp': timestamp,
+                                                'text': text,
+                                                'source': 'wechat'
                                             })
 
                                     # Update last_messages to current messages

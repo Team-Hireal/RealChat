@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import io from 'socket.io-client';
 import './ChatBox.css';
 
 const ChatBox = () => {
@@ -7,6 +8,7 @@ const ChatBox = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState('claude');
   const messagesEndRef = useRef(null);
+  const socketRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -15,6 +17,147 @@ const ChatBox = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Set up Socket.IO connection for WeChat messages
+  useEffect(() => {
+    socketRef.current = io('http://localhost:5001');
+
+    socketRef.current.on('connect', () => {
+      console.log('ChatBox connected to Socket.IO');
+    });
+
+    // Listen for context load event (from Test OCR button)
+    socketRef.current.on('load_context', (data) => {
+      console.log('Loading context:', data);
+
+      // Add context as ONE user message
+      const contextMessage = {
+        role: 'user',
+        content: data.context,
+        timestamp: new Date().toLocaleTimeString(),
+        source: 'wechat_context'
+      };
+
+      setMessages([contextMessage]);
+
+      // Add system message
+      const systemMessage = {
+        role: 'assistant',
+        content: `Loaded ${data.message_count} messages from WeChat as context. I'm ready to respond to new messages.`,
+        model: 'system',
+        timestamp: new Date().toLocaleTimeString()
+      };
+      setMessages(prev => [...prev, systemMessage]);
+    });
+
+    // Listen for WeChat messages
+    socketRef.current.on('wechat_message', (data) => {
+      console.log('Received WeChat message:', data);
+
+      // Add WeChat message as user message
+      const wechatMessage = {
+        role: 'user',
+        content: data.text,
+        timestamp: data.timestamp,
+        source: 'wechat'
+      };
+
+      setMessages(prev => [...prev, wechatMessage]);
+
+      // Automatically send to AI for processing
+      processWeChatMessage(data.text, [...messages, wechatMessage]);
+    });
+
+    return () => {
+      socketRef.current?.disconnect();
+    };
+  }, [messages]);
+
+  const processWeChatMessage = async (messageText, currentMessages) => {
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('http://localhost:5001/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: messageText,
+          model: selectedModel,
+          history: currentMessages
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        const aiMessage = {
+          role: 'assistant',
+          content: data.response,
+          model: data.model || selectedModel,
+          timestamp: new Date().toLocaleTimeString()
+        };
+        setMessages(prev => [...prev, aiMessage]);
+      } else {
+        const errorMessage = {
+          role: 'error',
+          content: `Error: ${data.error || 'Failed to get AI response'}`,
+          timestamp: new Date().toLocaleTimeString()
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      }
+    } catch (error) {
+      console.error('Error processing WeChat message:', error);
+      const errorMessage = {
+        role: 'error',
+        content: `Error: ${error.message}`,
+        timestamp: new Date().toLocaleTimeString()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadInitialContext = async () => {
+    try {
+      // Fetch current messages from WeChat via OCR
+      const response = await fetch('http://localhost:5001/api/wechat/read?ocr=true');
+      const data = await response.json();
+
+      if (data.success && data.messages && data.messages.length > 0) {
+        // Combine all messages into one text block
+        const contextText = data.messages
+          .filter(msg => msg.text && msg.text.trim())  // Only non-empty messages
+          .map(msg => `[${msg.timestamp}] ${msg.text}`)
+          .join('\n');
+
+        if (contextText) {
+          // Add as ONE user message with all context
+          const contextMessage = {
+            role: 'user',
+            content: `Here are the current messages from WeChat:\n\n${contextText}`,
+            timestamp: new Date().toLocaleTimeString(),
+            source: 'wechat_context'
+          };
+
+          setMessages([contextMessage]);
+
+          // Add a system message indicating context was loaded
+          const systemMessage = {
+            role: 'assistant',
+            content: `Loaded ${data.messages.filter(msg => msg.text && msg.text.trim()).length} messages from WeChat as context. I'm ready to respond to new messages.`,
+            model: 'system',
+            timestamp: new Date().toLocaleTimeString()
+          };
+          setMessages(prev => [...prev, systemMessage]);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading initial context:', error);
+    }
+  };
 
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
@@ -96,6 +239,9 @@ const ChatBox = () => {
             <option value="claude">Claude</option>
             <option value="zypher">Zypher</option>
           </select>
+          <button className="clear-chat-btn" onClick={loadInitialContext}>
+            📥 Load Context
+          </button>
           <button className="clear-chat-btn" onClick={clearChat}>
             🗑️ Clear
           </button>

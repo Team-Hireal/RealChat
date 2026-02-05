@@ -109,7 +109,8 @@ const Sidebar = () => {
         }
       });
 
-      const response = await apiService.readMessagesOCR();
+      // Pass true to load context into ChatBox
+      const response = await apiService.readMessagesOCR(true);
 
       if (response.data.success) {
         const messages = response.data.messages;
