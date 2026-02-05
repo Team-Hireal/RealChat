@@ -226,6 +226,27 @@ class WeChatOCR:
             logger.error(f"Error in Vision OCR: {e}")
             return []
 
+    def _filter_ui_elements(self, text: str) -> str:
+        """Remove common UI elements from message text"""
+        ui_elements = [
+            'File Transfer', 'Voice Call', 'Video Call', 'Location',
+            'Contact Card', 'Red Packet', 'Mini Program', 'Sticker',
+            'Image', 'Video', 'Voice Message'
+        ]
+        cleaned = text
+        for element in ui_elements:
+            cleaned = cleaned.replace(element, '')
+        return ' '.join(cleaned.split()).strip()
+
+    def _normalize_text(self, text: str) -> str:
+        """Normalize text for comparison"""
+        return ' '.join(text.lower().split())
+
+    def _get_message_signature(self, text: str, num_words: int = 5) -> str:
+        """Get first N words of message as signature"""
+        words = text.split()[:num_words]
+        return ' '.join(words)
+
     def parse_messages(self, text_lines: List[str]) -> List[Dict]:
         """
         Parse OCR text lines into structured messages
@@ -267,11 +288,64 @@ class WeChatOCR:
                     current_message['text'] += ' ' + line
                 else:
                     current_message['text'] = line
+            else:
+                # No timestamp found yet, but we have text
+                # Create a message without timestamp
+                if not current_message:
+                    current_message = {
+                        'timestamp': 'Unknown time',
+                        'text': line,
+                        'is_agent': False
+                    }
+                else:
+                    current_message['text'] += ' ' + line
 
         # Add last message
         if current_message:
             messages.append(current_message)
 
+        # If we only got one big message with no timestamps, try to split by sentence patterns
+        if len(messages) == 1 and len(text_lines) > 5:
+            # Try to detect multiple messages by looking for repeated short phrases
+            # or complete sentence boundaries
+            text = messages[0]['text']
+
+            # Split by common message boundaries (questions followed by statements)
+            # This is a heuristic approach
+            parts = []
+            current_part = []
+
+            for line in text_lines:
+                line = line.strip()
+                if not line:
+                    continue
+
+                # If line is very short (1-3 words) and we have accumulated text,
+                # it might be a separate message
+                if len(line.split()) <= 3 and current_part:
+                    if current_part:
+                        parts.append(' '.join(current_part))
+                        current_part = []
+                    parts.append(line)
+                else:
+                    current_part.append(line)
+
+            # Add remaining part
+            if current_part:
+                parts.append(' '.join(current_part))
+
+            # If we successfully split into multiple parts, create separate messages
+            if len(parts) > 1:
+                messages = []
+                for part in parts:
+                    if part.strip():
+                        messages.append({
+                            'timestamp': 'Unknown time',
+                            'text': part.strip(),
+                            'is_agent': False
+                        })
+
+        logger.info(f"Parsed {len(messages)} messages from {len(text_lines)} text lines")
         return messages
 
     def read_messages(self) -> List[Dict]:
@@ -297,17 +371,45 @@ class WeChatOCR:
                     logger.warning("No text extracted from screenshot")
                     return []
 
+                # Log raw OCR output for debugging
+                logger.info(f"Raw OCR text ({len(text_lines)} lines): {text_lines[:10]}")
+
                 # Parse into messages
                 messages = self.parse_messages(text_lines)
 
-                # Filter out agent's own messages
+                # Filter out agent's own messages using fuzzy matching
                 new_messages = []
                 for msg in messages:
                     msg_text = msg['text']
-                    if msg_text not in self.agent_messages:
+
+                    # Clean UI elements
+                    cleaned_text = self._filter_ui_elements(msg_text)
+                    if not cleaned_text:
+                        continue
+
+                    msg['text'] = cleaned_text
+
+                    # Check if matches any agent message
+                    is_agent_msg = False
+                    normalized_msg = self._normalize_text(cleaned_text)
+                    msg_signature = self._get_message_signature(cleaned_text)
+
+                    for agent_msg in self.agent_messages:
+                        normalized_agent = self._normalize_text(agent_msg)
+                        agent_signature = self._get_message_signature(agent_msg)
+
+                        if (normalized_msg == normalized_agent or
+                            normalized_agent in normalized_msg or
+                            normalized_msg in normalized_agent or
+                            msg_signature == agent_signature):
+                            is_agent_msg = True
+                            logger.info(f"Filtered agent message: {cleaned_text[:50]}...")
+                            break
+
+                    if not is_agent_msg:
                         new_messages.append(msg)
 
-                logger.info(f"Read {len(new_messages)} new messages")
+                logger.info(f"Read {len(new_messages)} new messages (filtered {len(messages) - len(new_messages)})")
                 return new_messages
 
             finally:
@@ -323,19 +425,17 @@ class WeChatOCR:
         self.agent_messages.add(text)
 
     def get_new_messages(self) -> List[Dict]:
-        """
-        Get only new messages since last check
-
-        Returns:
-            List of new message dictionaries
-        """
+        """Get only new messages since last check"""
         current_messages = self.read_messages()
 
-        # Find messages not in last_messages
-        last_texts = {msg['text'] for msg in self.last_messages}
-        new_messages = [msg for msg in current_messages if msg['text'] not in last_texts]
+        # Use signature-based deduplication
+        last_signatures = {self._get_message_signature(msg['text']) for msg in self.last_messages}
+        new_messages = []
 
-        # Update last_messages
+        for msg in current_messages:
+            msg_signature = self._get_message_signature(msg['text'])
+            if msg_signature not in last_signatures:
+                new_messages.append(msg)
+
         self.last_messages = current_messages
-
         return new_messages

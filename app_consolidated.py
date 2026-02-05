@@ -41,7 +41,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 wechat_config = {
     'chat_names': os.getenv('WECHAT_CHAT_NAMES', 'File Transfer,文件传输助手').split(','),
     'scan_method': os.getenv('WECHAT_SCAN_METHOD', 'applescript'),
-    'auto_detect_messages': False  # Auto-detect incoming messages
+    'auto_detect_messages': True  # Auto-detect incoming messages
 }
 wechat_service = WeChatService(wechat_config)
 
@@ -1392,7 +1392,7 @@ def emit_current_chat_updates():
                                         'timestamp': current_time
                                     })
 
-                                    # Emit each new message to activity log
+                                    # Log all new messages to activity log
                                     for msg in new_messages:
                                         timestamp = msg.get('timestamp', 'Unknown time')
                                         text = msg.get('text', '')
@@ -1403,16 +1403,22 @@ def emit_current_chat_updates():
                                                 'timestamp': current_time
                                             })
 
-                                            # Emit new message to chatbox for AI processing
-                                            socketio.emit('wechat_message', {
-                                                'timestamp': timestamp,
-                                                'text': text,
-                                                'source': 'wechat'
-                                            })
+                                    # Only send the LAST (newest) message to chatbox for AI processing
+                                    last_msg = new_messages[-1]
+                                    last_timestamp = last_msg.get('timestamp', 'Unknown time')
+                                    last_text = last_msg.get('text', '')
+
+                                    if last_text:
+                                        logger.info(f"📤 Sending last message to chatbox: {last_text[:50]}...")
+                                        socketio.emit('wechat_message', {
+                                            'timestamp': last_timestamp,
+                                            'text': last_text,
+                                            'source': 'wechat'
+                                        })
 
                                     # Update last_messages to current messages
                                     last_messages = messages
-                                    logger.info(f"✅ Emitted {len(new_messages)} new messages")
+                                    logger.info(f"✅ Emitted 1 message to chatbox (out of {len(new_messages)} new)")
                                 else:
                                     logger.debug("No new messages (all duplicates)")
 
