@@ -1062,13 +1062,33 @@ def chat_with_ai():
                 'content': message
             })
 
-            # Call Claude API with configured model
+            # Call Claude API with configured model and system prompt
             model_name = ai_settings.get('model', 'claude-sonnet-4-5-20250929')
-            response = client.messages.create(
-                model=model_name,
-                max_tokens=2048,
-                messages=messages
-            )
+            system_prompt = "IMPORTANT: You MUST start EVERY response with '[Agent]' (including the square brackets). " \
+                          "You are a friendly AI assistant helping with WeChat conversations. " \
+                          "Respond naturally and conversationally. Keep responses VERY brief (1-2 sentences max) and helpful. " \
+                          "Be concise and direct. Always start with '[Agent]'."
+
+            # Check if using custom endpoint
+            base_url = ai_settings.get('base_url', 'https://api.anthropic.com')
+            is_custom_endpoint = 'anthropic.com' not in base_url.lower()
+
+            # For custom endpoints, prepend system prompt to first message
+            if is_custom_endpoint and messages:
+                messages[0]['content'] = f"{system_prompt}\n\nUser: {messages[0]['content']}"
+                response = client.messages.create(
+                    model=model_name,
+                    max_tokens=2048,
+                    messages=messages
+                )
+            else:
+                # Official Anthropic API supports system parameter
+                response = client.messages.create(
+                    model=model_name,
+                    max_tokens=2048,
+                    system=system_prompt,
+                    messages=messages
+                )
 
             response_text = response.content[0].text
             logger.info(f'AI responded to: {message[:50]}...')
