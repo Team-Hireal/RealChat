@@ -229,14 +229,29 @@ class WeChatOCR:
     def _filter_ui_elements(self, text: str) -> str:
         """Remove common UI elements from message text"""
         ui_elements = [
-            'File Transfer', 'Voice Call', 'Video Call', 'Location',
+            'File Transfer', 'file transfer', 'FILE TRANSFER',
+            'FileTransfer', 'filetransfer',
+            '文件传输助手',  # Chinese File Transfer
+            'Voice Call', 'Video Call', 'Location',
             'Contact Card', 'Red Packet', 'Mini Program', 'Sticker',
-            'Image', 'Video', 'Voice Message'
+            'Image', 'Video', 'Voice Message',
+            'Send File', 'Send sticker', 'Send Favorites', 'Screenshot'
         ]
+
         cleaned = text
+
+        # Remove each UI element (case-insensitive)
         for element in ui_elements:
+            # Remove exact matches
             cleaned = cleaned.replace(element, '')
-        return ' '.join(cleaned.split()).strip()
+            # Remove with various casings
+            cleaned = cleaned.replace(element.lower(), '')
+            cleaned = cleaned.replace(element.upper(), '')
+            cleaned = cleaned.replace(element.title(), '')
+
+        # Remove extra whitespace and return
+        cleaned = ' '.join(cleaned.split()).strip()
+        return cleaned
 
     def _normalize_text(self, text: str) -> str:
         """Normalize text for comparison"""
@@ -417,7 +432,16 @@ class WeChatOCR:
                             break
 
                     if not is_agent_msg:
-                        new_messages.append(msg)
+                        # FINAL: One more cleanup to remove any remaining "File Transfer" text
+                        final_text = cleaned_text
+                        for term in ['File Transfer', 'file transfer', 'FileTransfer', '文件传输助手']:
+                            final_text = final_text.replace(term, '')
+                        final_text = ' '.join(final_text.split()).strip()
+
+                        # Only add if there's actual content left
+                        if final_text:
+                            msg['text'] = final_text
+                            new_messages.append(msg)
 
                 logger.info(f"Read {len(new_messages)} new messages (filtered {len(messages) - len(new_messages)})")
                 return new_messages
