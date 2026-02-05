@@ -4,6 +4,7 @@ export const ACTIONS = {
   SET_CONFIG: 'SET_CONFIG',
   SET_LOGS: 'SET_LOGS',
   ADD_LOG: 'ADD_LOG',
+  CLEAR_LOGS: 'CLEAR_LOGS',
   SET_TRACKING: 'SET_TRACKING',
   SET_LOADING: 'SET_LOADING',
   SET_ERROR: 'SET_ERROR',
@@ -70,6 +71,12 @@ export const appReducer = (state, action) => {
       return {
         ...state,
         logs: [...state.logs, action.payload],
+      };
+
+    case ACTIONS.CLEAR_LOGS:
+      return {
+        ...state,
+        logs: [],
       };
 
     case ACTIONS.SET_TRACKING:

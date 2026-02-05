@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useAppContext } from '../context/AppContext';
+import { ACTIONS } from '../context/AppReducer';
 import apiService from '../services/api';
 import AISettings from './AISettings';
 import './Sidebar.css';
 
 const Sidebar = () => {
+  const { dispatch } = useAppContext();
   const [agentRunning, setAgentRunning] = useState(false);
   const [chatName, setChatName] = useState('File');
   const [windowInfo, setWindowInfo] = useState(null);
@@ -91,6 +94,116 @@ const Sidebar = () => {
       await apiService.readMessages(chatName);
     } catch (error) {
       console.error('Failed to read messages:', error);
+    }
+  };
+
+  const testOCR = async () => {
+    try {
+      dispatch({
+        type: ACTIONS.ADD_LOG,
+        payload: {
+          type: 'info',
+          message: '🔍 Starting OCR message reading...',
+          timestamp: Date.now()
+        }
+      });
+
+      const response = await apiService.readMessagesOCR();
+
+      if (response.data.success) {
+        const messages = response.data.messages;
+
+        dispatch({
+          type: ACTIONS.ADD_LOG,
+          payload: {
+            type: 'success',
+            message: `✅ OCR extracted ${messages.length} messages`,
+            timestamp: Date.now()
+          }
+        });
+
+        // Display each message in the activity log
+        messages.forEach((msg, index) => {
+          const timestamp = msg.timestamp || 'Unknown time';
+          const sender = msg.sender || 'Unknown sender';
+          const text = msg.text || '';
+
+          dispatch({
+            type: ACTIONS.ADD_LOG,
+            payload: {
+              type: 'info',
+              message: `📝 [${timestamp}] ${sender}: ${text.substring(0, 100)}${text.length > 100 ? '...' : ''}`,
+              timestamp: Date.now()
+            }
+          });
+        });
+
+        console.log('Full OCR results:', messages);
+      } else {
+        dispatch({
+          type: ACTIONS.ADD_LOG,
+          payload: {
+            type: 'error',
+            message: `❌ OCR failed: ${response.data.error || 'Unknown error'}`,
+            timestamp: Date.now()
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Failed to run OCR:', error);
+      dispatch({
+        type: ACTIONS.ADD_LOG,
+        payload: {
+          type: 'error',
+          message: `❌ OCR error: ${error.message}`,
+          timestamp: Date.now()
+        }
+      });
+    }
+  };
+
+  const openChatTest = async () => {
+    try {
+      dispatch({
+        type: ACTIONS.ADD_LOG,
+        payload: {
+          type: 'info',
+          message: `📂 Opening chat: ${chatName}`,
+          timestamp: Date.now()
+        }
+      });
+
+      const response = await apiService.openChat(chatName);
+
+      if (response.data.success) {
+        dispatch({
+          type: ACTIONS.ADD_LOG,
+          payload: {
+            type: 'success',
+            message: `✅ Chat opened: ${response.data.chat}`,
+            timestamp: Date.now()
+          }
+        });
+      } else {
+        dispatch({
+          type: ACTIONS.ADD_LOG,
+          payload: {
+            type: 'error',
+            message: '❌ Failed to open chat',
+            timestamp: Date.now()
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Failed to open chat:', error);
+      dispatch({
+        type: ACTIONS.ADD_LOG,
+        payload: {
+          type: 'error',
+          message: `❌ Error opening chat: ${error.message}`,
+          timestamp: Date.now()
+        }
+      });
     }
   };
 
@@ -204,8 +317,14 @@ const Sidebar = () => {
       {/* Quick Actions */}
       <div className="section">
         <h3 className="section-title">Quick Actions</h3>
+        <button className="btn btn-secondary" onClick={openChatTest}>
+          📂 Open Chat
+        </button>
         <button className="btn btn-secondary" onClick={readMessages}>
           📥 Read Messages
+        </button>
+        <button className="btn btn-primary" onClick={testOCR}>
+          🔍 Test OCR Reading
         </button>
       </div>
 

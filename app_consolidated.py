@@ -305,7 +305,19 @@ def read_messages():
     try:
         chat_name = request.args.get('chat_name')
         structured = request.args.get('structured', 'false').lower() == 'true'
+        use_ocr = request.args.get('ocr', 'false').lower() == 'true'
 
+        # OCR-based reading
+        if use_ocr:
+            messages = wechat_service.read_messages_ocr()
+            return jsonify({
+                "success": True,
+                "method": "ocr",
+                "messages": messages,
+                "count": len(messages)
+            })
+
+        # Traditional reading methods
         if structured:
             data = wechat_service.read_messages_structured(chat_name)
             if data:
@@ -327,6 +339,36 @@ def read_messages():
             })
     except Exception as e:
         logger.error(f"Error reading messages: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/wechat/messages/new', methods=['GET'])
+def get_new_messages():
+    """Get new messages using OCR (only messages since last check)"""
+    try:
+        new_messages = wechat_service.get_new_messages_ocr()
+        return jsonify({
+            "success": True,
+            "messages": new_messages,
+            "count": len(new_messages),
+            "method": "ocr"
+        })
+    except Exception as e:
+        logger.error(f"Error getting new messages: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/wechat/messages/check', methods=['GET'])
+def check_new_messages():
+    """Check if there are new messages (without reading them)"""
+    try:
+        has_new = wechat_service.has_new_message()
+        return jsonify({
+            "success": True,
+            "has_new_message": has_new
+        })
+    except Exception as e:
+        logger.error(f"Error checking for new messages: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 

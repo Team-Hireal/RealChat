@@ -23,6 +23,82 @@ class WeChatService:
         self.chat_cache = []  # Cache for scanned chats
         self.chat_cache_time = 0  # Timestamp of last scan
 
+        # Initialize OCR and message detector
+        self.ocr_reader = None
+        self.message_detector = None
+        self._init_ocr_components()
+
+    def _init_ocr_components(self):
+        """Initialize OCR and message detection components"""
+        try:
+            from services.wechat_ocr import WeChatOCR
+            from services.message_detector import NewMessageDetector
+
+            self.ocr_reader = WeChatOCR()
+            self.message_detector = NewMessageDetector()
+            logger.info("OCR components initialized")
+        except Exception as e:
+            logger.warning(f"Could not initialize OCR components: {e}")
+
+    def read_messages_ocr(self) -> List[Dict]:
+        """
+        Read messages using OCR
+
+        Returns:
+            List of message dictionaries
+        """
+        if not self.ocr_reader:
+            logger.error("OCR reader not initialized")
+            return []
+
+        try:
+            messages = self.ocr_reader.read_messages()
+            logger.info(f"OCR read {len(messages)} messages")
+            return messages
+        except Exception as e:
+            logger.error(f"Error reading messages with OCR: {e}")
+            return []
+
+    def get_new_messages_ocr(self) -> List[Dict]:
+        """
+        Get only new messages since last check using OCR
+
+        Returns:
+            List of new message dictionaries
+        """
+        if not self.ocr_reader:
+            logger.error("OCR reader not initialized")
+            return []
+
+        try:
+            new_messages = self.ocr_reader.get_new_messages()
+            logger.info(f"Found {len(new_messages)} new messages")
+            return new_messages
+        except Exception as e:
+            logger.error(f"Error getting new messages: {e}")
+            return []
+
+    def has_new_message(self) -> bool:
+        """
+        Check if there's a new message by monitoring sidebar
+
+        Returns:
+            bool: True if new message detected
+        """
+        if not self.message_detector:
+            return False
+
+        try:
+            return self.message_detector.has_new_message()
+        except Exception as e:
+            logger.error(f"Error checking for new messages: {e}")
+            return False
+
+    def mark_message_as_sent(self, text: str):
+        """Mark a message as sent by agent (to filter it out from OCR)"""
+        if self.ocr_reader:
+            self.ocr_reader.mark_as_agent_message(text)
+
     def is_wechat_running(self) -> bool:
         """Check if WeChat is running"""
         try:
