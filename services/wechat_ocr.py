@@ -87,7 +87,7 @@ class WeChatOCR:
             # Parse window bounds
             x, y, w, h = map(int, output.split(','))
 
-            logger.debug(f"WeChat window at: x={x}, y={y}, w={w}, h={h}")
+            logger.info(f"WeChat window at: x={x}, y={y}, w={w}, h={h}")
 
             # Calculate message area (right side, excluding sidebar and input)
             # Sidebar is ~30% of width, input area is ~100px at bottom
@@ -106,7 +106,7 @@ class WeChatOCR:
 
             result = subprocess.run(cmd, capture_output=True, timeout=10)
             if result.returncode == 0:
-                logger.debug(f"Screenshot captured: {output_path}")
+                logger.info(f"Screenshot captured: {output_path}")
                 return True
             else:
                 logger.error(f"Screenshot failed: {result.stderr}")
@@ -188,7 +188,7 @@ class WeChatOCR:
                 if result.returncode == 0:
                     # Parse JSON output
                     texts = json.loads(result.stdout.strip())
-                    logger.debug(f"OCR extracted {len(texts)} text elements")
+                    logger.info(f"OCR extracted {len(texts)} text elements")
                     return texts
                 else:
                     logger.error(f"Swift OCR failed: {result.stderr}")
@@ -212,17 +212,21 @@ class WeChatOCR:
         Returns:
             List of message dictionaries
         """
+        import re
+
         messages = []
         current_message = None
+
+        # Regex to match timestamps: "01:42", "Tuesday 22:33", "Yesterday 14:20", etc.
+        timestamp_pattern = re.compile(r'^\d{1,2}:\d{2}$|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Yesterday|Today')
 
         for line in text_lines:
             line = line.strip()
             if not line:
                 continue
 
-            # Check if line is a timestamp (e.g., "Tuesday 22:33", "Yesterday 14:20")
-            if any(day in line for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday',
-                                           'Friday', 'Saturday', 'Sunday', 'Yesterday', 'Today']):
+            # Check if line is a timestamp
+            if timestamp_pattern.search(line):
                 # Save previous message if exists
                 if current_message:
                     messages.append(current_message)
@@ -279,7 +283,7 @@ class WeChatOCR:
                     if msg_text not in self.agent_messages:
                         new_messages.append(msg)
 
-                logger.debug(f"Read {len(new_messages)} new messages")
+                logger.info(f"Read {len(new_messages)} new messages")
                 return new_messages
 
             finally:

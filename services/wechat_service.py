@@ -53,7 +53,7 @@ class WeChatService:
 
         try:
             messages = self.ocr_reader.read_messages()
-            logger.debug(f"OCR read {len(messages)} messages")
+            logger.info(f"OCR read {len(messages)} messages")
             return messages
         except Exception as e:
             logger.error(f"Error reading messages with OCR: {e}")

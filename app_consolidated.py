@@ -1355,7 +1355,8 @@ def emit_current_chat_updates():
                         last_ocr_check = current_time
 
                         try:
-                            # Run OCR to extract messages (silently)
+                            logger.info("[AUTO-DETECT] Running OCR scan...")
+                            # Run OCR to extract messages
                             messages = wechat_service.read_messages_ocr()
 
                             if messages:
@@ -1364,7 +1365,6 @@ def emit_current_chat_updates():
                                 new_messages = [msg for msg in messages if msg.get('text', '') not in last_message_texts]
 
                                 if new_messages:
-                                    # Only log when there are NEW messages
                                     logger.info(f"🔔 {len(new_messages)} new message(s) detected!")
 
                                     # Emit log for new messages
@@ -1385,10 +1385,16 @@ def emit_current_chat_updates():
                                                 'timestamp': current_time
                                             })
 
+                                    # Update last_messages to current messages
+                                    last_messages = messages
                                     logger.info(f"✅ Emitted {len(new_messages)} new messages")
+                                else:
+                                    logger.debug("No new messages (all duplicates)")
 
                                 # Always update last_messages even if no new ones
                                 last_messages = messages
+                            else:
+                                logger.debug("OCR returned no messages")
 
                         except Exception as e:
                             logger.error(f"Error running OCR scan: {e}")
