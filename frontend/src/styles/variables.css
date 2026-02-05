@@ -74,6 +74,9 @@
   --text-on-metal: rgba(255, 255, 255, 0.9);
   --text-on-ceramic: rgba(255, 255, 255, 0.95);
 
+  /* Background Colors */
+  --bg-body: #000000;
+
   /* Status Colors */
   --status-success: #10B981;
   --status-error: #EF4444;
@@ -161,5 +164,8 @@
   --text-on-glass-secondary: rgba(0, 0, 0, 0.6);
   --text-on-metal: rgba(0, 0, 0, 0.9);
   --text-on-ceramic: rgba(0, 0, 0, 0.95);
+
+  /* Background Colors */
+  --bg-body: #ffffff;
 }
 

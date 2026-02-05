@@ -317,14 +317,15 @@ def get_current_chat():
         # Try to detect current chat from window title
         current_chat = wechat_service.get_current_chat_name()
 
-        # Fallback to selected_chat if detection fails
+        # Show accurate status - don't fall back to selected_chat
         if not current_chat:
-            current_chat = selected_chat or "No active chat"
+            current_chat = "No chat open (open a chat to detect)"
 
         return jsonify({
             "success": True,
             "chat": current_chat,
-            "detected": current_chat != selected_chat
+            "detected": current_chat != "No chat open (open a chat to detect)",
+            "selected": selected_chat
         })
     except Exception as e:
         logger.error(f"Error getting current chat: {e}")
@@ -1229,23 +1230,34 @@ def emit_current_chat_updates():
     """Background task to emit current chat updates via WebSocket"""
     global selected_chat
     last_emitted_chat = None
+    iteration_count = 0
 
-    logger.info("Current chat detection thread started")
+    logger.info("🚀 High-frequency chat detection started (10 Hz / 100ms)")
 
     while True:
         try:
             detected_chat = None
+            iteration_count += 1
 
             # Try to detect current chat if WeChat is running
             if wechat_service.is_wechat_running():
                 # Detect the current chat from WeChat UI
                 detected_chat = wechat_service.get_current_chat_name()
-                logger.debug(f"Detected chat: {detected_chat}")
 
-            # Use detected chat if available, otherwise use selected_chat
-            current_chat = detected_chat or selected_chat or "No active chat"
+                # Only log every 10 iterations (once per second) to reduce log spam
+                if iteration_count % 10 == 0:
+                    logger.debug(f"[SCAN] Iteration {iteration_count}: {repr(detected_chat)}")
+            else:
+                if last_emitted_chat != "WeChat not running":
+                    logger.warning("[MONITOR] WeChat is not running")
 
-            # Only emit if changed to reduce network traffic
+            # Use detected chat if available
+            if detected_chat:
+                current_chat = detected_chat
+            else:
+                current_chat = "No chat open (open a chat to detect)"
+
+            # Emit if changed (this is the key - emit immediately on change)
             if current_chat != last_emitted_chat:
                 socketio.emit('current_chat_update', {
                     'chat': current_chat,
@@ -1253,15 +1265,28 @@ def emit_current_chat_updates():
                     'selected': selected_chat,
                     'timestamp': time.time()
                 })
-                last_emitted_chat = current_chat
-                logger.info(f"Current chat update: {current_chat} (detected={detected_chat is not None})")
 
-            time.sleep(1)  # Update every second
+                # Emit log for activity feed
+                if detected_chat:
+                    socketio.emit('log', {
+                        'type': 'success',
+                        'message': f'✅ Chat detected: "{current_chat}"',
+                        'timestamp': time.time()
+                    })
+                    logger.info(f"✅ CHAT CHANGE: {current_chat}")
+                else:
+                    logger.info(f"📭 NO CHAT: {current_chat}")
+
+                last_emitted_chat = current_chat
+
+            # High-frequency scanning: 100ms = 10 Hz
+            time.sleep(0.1)
+
         except Exception as e:
-            logger.error(f"Error emitting current chat update: {e}")
+            logger.error(f"Error in chat detection loop: {e}")
             import traceback
             logger.error(traceback.format_exc())
-            time.sleep(5)  # Wait longer on error
+            time.sleep(1)  # Wait longer on error
 
 
 # Start background task for current chat updates

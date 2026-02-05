@@ -269,13 +269,15 @@ class WeChatService:
 
     def get_current_chat_name(self) -> Optional[str]:
         """
-        Get the current chat name from the WeChat UI elements
+        Get the current chat name from WeChat window title
+        Optimized for high-frequency scanning (10 Hz)
 
         Returns:
             str: Current chat name or None if not detected
         """
         try:
-            # Try to get chat name from UI elements using AppleScript
+            # Fast method: Only check window title (no UI element parsing)
+            # This is instant and works when a chat is actually open
             script = '''
             tell application "System Events"
                 tell process "WeChat"
@@ -284,58 +286,28 @@ class WeChatService:
                     end if
 
                     set mainWindow to window 1
-
-                    -- Try window title first (fastest)
                     set winTitle to name of mainWindow
-                    if winTitle is not "WeChat" and winTitle is not "微信" and winTitle does not contain "(Window)" then
-                        return winTitle
-                    end if
 
-                    -- Get UI elements and search for chat name
-                    try
-                        set allElements to entire contents of mainWindow
-                        set elementCount to count of allElements
-
-                        -- Limit search to first 100 elements for speed
-                        if elementCount > 100 then
-                            set elementCount to 100
-                        end if
-
-                        repeat with i from 1 to elementCount
-                            try
-                                set elem to item i of allElements
-                                set elemValue to value of elem
-                                -- Look for chat names (skip empty, very short, or very long values)
-                                if elemValue is not missing value then
-                                    set valueLength to length of elemValue
-                                    if valueLength > 3 and valueLength < 50 then
-                                        -- Skip common UI labels
-                                        if elemValue does not contain "⌘" and elemValue does not contain "(" then
-                                            return elemValue
-                                        end if
-                                    end if
-                                end if
-                            end try
-                        end repeat
-                    end try
-
-                    return "no_chat"
+                    -- Return the window title
+                    return winTitle
                 end tell
             end tell
             '''
 
             result = subprocess.run(['osascript', '-e', script],
-                                  capture_output=True, text=True, timeout=10)
+                                  capture_output=True, text=True, timeout=1)
             output = result.stdout.strip()
 
-            if output == "no_window" or output == "no_chat" or output == "":
+            if output == "no_window" or output == "":
                 return None
 
             # Filter out common non-chat titles
-            non_chat_titles = ['WeChat', '微信', 'Chats', '聊天', 'WeChat (Window)']
+            non_chat_titles = ['WeChat', '微信', 'Chats', '聊天', 'WeChat (Window)', 'Contacts', '通讯录']
             if output in non_chat_titles:
                 return None
 
+            # Log successful detection
+            logger.info(f"✅ DETECTED: '{output}'")
             return output
 
         except Exception as e:

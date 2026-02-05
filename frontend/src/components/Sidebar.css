@@ -1,7 +1,7 @@
 .sidebar {
-  background: #F5F5F5;
+  background: var(--ceramic-bg);
   padding: 30px;
-  border-right: 1px solid #E5E5E5;
+  border-right: 1px solid var(--glass-border);
   overflow-y: auto;
   height: 100%;
 }
@@ -13,7 +13,7 @@
 .section-title {
   font-size: 14px;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 15px;
@@ -59,14 +59,14 @@
 }
 
 .btn-secondary {
-  background: white;
-  color: #1a1a1a;
-  border: 1px solid #E5E5E5;
+  background: var(--glass-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--glass-border);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: #FAFAFA;
-  border-color: #D0D0D0;
+  background: var(--glass-bg-light);
+  border-color: var(--wechat-green);
 }
 
 .input-group {
@@ -77,23 +77,25 @@
   display: block;
   font-size: 12px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin-bottom: 6px;
 }
 
 .input {
   width: 100%;
   padding: 12px 16px;
-  border: 1px solid #E5E5E5;
-  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
   font-size: 14px;
-  transition: all 0.2s ease;
-  background: white;
+  transition: var(--transition-fast);
+  background: var(--glass-bg);
+  color: var(--text-primary);
 }
 
 .input:focus {
   outline: none;
-  border-color: #07C160;
+  border-color: var(--wechat-green);
+  box-shadow: 0 0 0 3px var(--wechat-green-glow);
 }
 
 select.input {
@@ -106,25 +108,25 @@ select.input {
 }
 
 .input-hint {
-  color: #8899a6;
+  color: var(--text-tertiary);
   font-size: 11px;
   margin-top: 4px;
   display: block;
 }
 
 .info-card {
-  background: white;
-  border-radius: 8px;
+  background: var(--glass-bg);
+  border-radius: var(--radius-sm);
   padding: 15px;
   margin-bottom: 15px;
-  border: 1px solid #E5E5E5;
+  border: 1px solid var(--glass-border);
 }
 
 .info-item {
   display: flex;
   justify-content: space-between;
   padding: 8px 0;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--glass-border-inner);
 }
 
 .info-item:last-child {
@@ -132,12 +134,12 @@ select.input {
 }
 
 .info-label {
-  color: #999999;
+  color: var(--text-secondary);
   font-size: 13px;
 }
 
 .info-value {
-  color: #1a1a1a;
+  color: var(--text-primary);
   font-weight: 600;
   font-size: 13px;
 }
@@ -148,12 +150,12 @@ select.input {
 }
 
 .info-value.success {
-  color: #10b981;
+  color: var(--status-success);
   font-weight: 700;
 }
 
 .info-value.error {
-  color: #ef4444;
+  color: var(--status-error);
   font-weight: 700;
 }
 
@@ -172,16 +174,18 @@ select.input {
   width: 40px;
   height: 22px;
   appearance: none;
-  background: #D0D0D0;
+  background: var(--glass-bg-light);
   border-radius: 11px;
   position: relative;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: var(--transition-normal);
   margin-right: 10px;
+  border: 1px solid var(--glass-border);
 }
 
 .toggle-label input[type="checkbox"]:checked {
-  background: #07C160;
+  background: var(--wechat-green);
+  border-color: var(--wechat-green);
 }
 
 .toggle-label input[type="checkbox"]::before {
@@ -204,5 +208,5 @@ select.input {
 .toggle-text {
   font-size: 13px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }

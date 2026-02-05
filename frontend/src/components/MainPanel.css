@@ -20,7 +20,7 @@
 .section-title {
   font-size: 14px;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 15px;
@@ -35,30 +35,34 @@
 .message-input {
   flex: 1;
   padding: 14px 18px;
-  border: 1px solid #E5E5E5;
-  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
   font-size: 15px;
-  transition: all 0.2s ease;
+  transition: var(--transition-fast);
+  background: var(--glass-bg);
+  color: var(--text-primary);
 }
 
 .message-input:focus {
   outline: none;
-  border-color: #07C160;
+  border-color: var(--wechat-green);
+  box-shadow: 0 0 0 3px var(--wechat-green-glow);
 }
 
 .send-btn {
   padding: 14px 30px;
-  background: #07C160;
+  background: var(--wechat-green);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--transition-fast);
 }
 
 .send-btn:hover:not(:disabled) {
-  background: #06AE56;
+  background: var(--wechat-green-hover);
+  box-shadow: 0 0 20px var(--wechat-green-glow);
 }
 
 .send-btn:disabled {
@@ -75,18 +79,20 @@
 
 .action-btn {
   padding: 12px;
-  background: white;
-  border: 1px solid #E5E5E5;
-  border-radius: 8px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--transition-fast);
   font-size: 13px;
   font-weight: 600;
+  color: var(--text-primary);
 }
 
 .action-btn:hover {
-  border-color: #D0D0D0;
-  background: #FAFAFA;
+  border-color: var(--wechat-green);
+  background: var(--glass-bg-light);
+  box-shadow: var(--glass-shadow);
 }
 
 .log-header {
@@ -98,35 +104,37 @@
 
 .clear-btn {
   padding: 8px 16px;
-  background: white;
-  border: 1px solid #E5E5E5;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
   border-radius: 6px;
   cursor: pointer;
   font-size: 12px;
   font-weight: 600;
-  transition: all 0.2s ease;
+  transition: var(--transition-fast);
+  color: var(--text-primary);
 }
 
 .clear-btn:hover {
-  background: #FAFAFA;
-  border-color: #D0D0D0;
+  background: var(--glass-bg-light);
+  border-color: var(--wechat-green);
 }
 
 .logs-container {
-  background: #2C2C2C;
-  border-radius: 8px;
+  background: var(--glass-bg-dark);
+  border-radius: var(--radius-sm);
   padding: 20px;
   height: 500px;
   overflow-y: auto;
   font-family: 'Monaco', 'Menlo', monospace;
   font-size: 13px;
-  color: #e0e0e0;
-  border: 1px solid #3C3C3C;
+  color: var(--text-primary);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
 }
 
 .log-entry {
   padding: 8px 0;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--glass-border-inner);
   animation: slideIn 0.3s ease;
 }
 
@@ -142,28 +150,28 @@
 }
 
 .log-time {
-  color: #999999;
+  color: var(--text-secondary);
   margin-right: 10px;
 }
 
 .log-success {
-  color: #07C160;
+  color: var(--wechat-green);
 }
 
 .log-error {
-  color: #FA5151;
+  color: var(--status-error);
 }
 
 .log-info {
-  color: #10AEFF;
+  color: var(--status-info);
 }
 
 .log-warning {
-  color: #FFC300;
+  color: var(--status-warning);
 }
 
 .log-message {
-  color: #07C160;
+  color: var(--wechat-green);
 }
 
 .logs-container::-webkit-scrollbar {
@@ -171,14 +179,14 @@
 }
 
 .logs-container::-webkit-scrollbar-track {
-  background: #2a2a2a;
+  background: var(--glass-bg-dark);
 }
 
 .logs-container::-webkit-scrollbar-thumb {
-  background: #555;
+  background: var(--glass-border);
   border-radius: 4px;
 }
 
 .logs-container::-webkit-scrollbar-thumb:hover {
-  background: #777;
+  background: var(--wechat-green);
 }

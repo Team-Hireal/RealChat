@@ -17,16 +17,11 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  /* Pure Black Background - WeChat Style */
-  background: #000000;
+  /* Theme-aware background */
+  background: var(--bg-body);
   background-attachment: fixed;
   position: relative;
-  transition: background var(--transition-normal);
-}
-
-/* Light Mode Background */
-[data-theme="light"] body {
-  background: #ffffff;
+  transition: background var(--transition-normal), color var(--transition-normal);
 }
 
 #root {

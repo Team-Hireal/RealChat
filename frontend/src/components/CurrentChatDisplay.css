@@ -1,10 +1,11 @@
 .current-chat-display {
-  background: linear-gradient(135deg, #07C160 0%, #06AE56 100%);
-  border-radius: 8px;
+  background: var(--ceramic-green);
+  border-radius: var(--radius-sm);
   padding: 12px 20px;
   margin-bottom: 20px;
   color: white;
-  box-shadow: 0 2px 8px rgba(7, 193, 96, 0.2);
+  box-shadow: var(--glass-shadow);
+  border: 1px solid var(--wechat-green);
 }
 
 .current-chat-row {
