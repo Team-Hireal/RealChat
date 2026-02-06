@@ -101,16 +101,16 @@ class WeChatOCR:
 
             if is_popup:
                 # Pop-up window: no sidebar, just message area
-                # Leave small margins on all sides
-                msg_x = x + 10  # Small left margin
+                # Focus on RIGHT HALF to capture user messages (they appear on right side)
+                msg_x = x + int(w * 0.5)  # Start from middle of window
                 msg_y = y + 60  # Below title bar (smaller for pop-ups)
-                msg_w = w - 20  # Full width minus margins
+                msg_w = int(w * 0.45)  # Right half minus margin
                 msg_h = h - 140  # Exclude title and input area
-                logger.info(f"Detected pop-up window (w={w})")
+                logger.info(f"Detected pop-up window (w={w}), focusing on right half for user messages")
             else:
                 # Main window: has sidebar on left
-                # Sidebar is approximately 30-35% of width, but adapt to actual size
-                sidebar_width = int(w * 0.32)  # Slightly adjusted
+                # Focus on RIGHT HALF of message area to capture user messages
+                sidebar_width = int(w * 0.32)  # Sidebar width
 
                 # Title bar height scales with window size
                 title_height = max(60, int(h * 0.08))  # 8% of height or 60px minimum
@@ -118,11 +118,15 @@ class WeChatOCR:
                 # Input area at bottom scales with window size
                 input_height = max(100, int(h * 0.12))  # 12% of height or 100px minimum
 
-                msg_x = x + sidebar_width + 10  # After sidebar plus small margin
+                # Calculate message area width (after sidebar)
+                message_area_width = w - sidebar_width - 30
+
+                # Focus on RIGHT HALF of message area (where user messages appear)
+                msg_x = x + sidebar_width + int(message_area_width * 0.5)  # Start from middle of message area
                 msg_y = y + title_height
-                msg_w = w - sidebar_width - 30  # Remaining width minus margins
+                msg_w = int(message_area_width * 0.45)  # Right half minus margin
                 msg_h = h - title_height - input_height
-                logger.info(f"Detected main window (w={w}), sidebar={sidebar_width}px")
+                logger.info(f"Detected main window (w={w}), sidebar={sidebar_width}px, focusing on right half for user messages")
 
             logger.info(f"Message area: x={msg_x}, y={msg_y}, w={msg_w}, h={msg_h}")
 
@@ -261,9 +265,26 @@ class WeChatOCR:
         if not text or len(text.strip()) < 3:
             return False
 
-        # Filter out [Agent] messages (check if [Agent] appears ANYWHERE in text)
-        if '[Agent]' in text or '[agent]' in text.lower():
-            return False
+        # Filter out [Agent] messages with ROBUST detection
+        # OCR often misreads [Agent] as variations like "ent]", "gent]", "Agent]", etc.
+        agent_patterns = [
+            r'\[Agent\]',  # Standard [Agent]
+            r'\[agent\]',  # Lowercase
+            r'ent\]',  # Common OCR error: "ent]"
+            r'gent\]',  # Common OCR error: "gent]"
+            r'Agent\]',  # Missing opening bracket
+            r'\[Agen',  # Partial match
+            r'› you today',  # Common fragment from "How can I help you today?"
+            r'How can I help you',  # Agent's common phrase
+            r'I\'m here to help',  # Agent's common phrase
+            r'Nice to meet you',  # Agent's common phrase
+            r'Feel free to',  # Agent's common phrase
+        ]
+
+        for pattern in agent_patterns:
+            if re.search(pattern, text, re.IGNORECASE):
+                logger.debug(f"Filtered agent message (pattern: {pattern}): {text[:50]}...")
+                return False
 
         # Filter out timestamps (e.g., "21:30", "01/26", "12:05")
         # Check both standalone timestamps and timestamps within text
@@ -344,6 +365,44 @@ class WeChatOCR:
         words = text.split()[:num_words]
         return ' '.join(words)
 
+    def _extract_last_message_by_timestamp(self, text: str) -> str:
+        """
+        Extract only the last message by finding the last timestamp and taking text after it
+
+        Args:
+            text: Combined OCR text
+
+        Returns:
+            Text after the last timestamp, or empty string if no timestamp found
+        """
+        import re
+
+        # Timestamp patterns
+        timestamp_patterns = [
+            r'\b\d{1,2}:\d{2}\b',  # 21:30, 12:05, 00:34, 23:57
+            r'\b\d{1,2}:\d{2}\s*[AP]M\b',  # 11:30 PM, 3:45 AM
+        ]
+
+        # Find all timestamp positions
+        last_timestamp_pos = -1
+        last_timestamp_end = -1
+
+        for pattern in timestamp_patterns:
+            for match in re.finditer(pattern, text):
+                if match.start() > last_timestamp_pos:
+                    last_timestamp_pos = match.start()
+                    last_timestamp_end = match.end()
+
+        # If we found a timestamp, extract text after it
+        if last_timestamp_end > 0:
+            text_after_timestamp = text[last_timestamp_end:].strip()
+            logger.debug(f"Found timestamp at position {last_timestamp_pos}, extracting text after it")
+            logger.debug(f"  → Text after timestamp: '{text_after_timestamp[:100]}...'")
+            return text_after_timestamp
+
+        # No timestamp found, return original text
+        return text
+
     def _extract_new_text(self, current_lines: List[str], previous_lines: List[str]) -> List[str]:
         """
         Extract ALL new text lines (complete new message)
@@ -366,7 +425,24 @@ class WeChatOCR:
         # Combine current lines into a single text string
         current_text = ' '.join(current_lines)
 
-        # If we have the last 3 words from the previous agent message, use them as a boundary
+        # FIRST: Try to extract the last message by timestamp
+        # This handles cases where OCR picks up multiple messages
+        text_after_timestamp = self._extract_last_message_by_timestamp(current_text)
+
+        if text_after_timestamp and text_after_timestamp != current_text:
+            # We found a timestamp and extracted text after it
+            # Check if this is different from previous scan
+            prev_text = ' '.join(previous_lines)
+            prev_after_timestamp = self._extract_last_message_by_timestamp(prev_text)
+
+            if text_after_timestamp != prev_after_timestamp:
+                logger.info(f"✅ New message after timestamp: '{text_after_timestamp[:100]}...'")
+                return [text_after_timestamp]
+            else:
+                logger.debug("Text after timestamp unchanged from previous scan")
+                return []
+
+        # SECOND: If we have the last 3 words from the previous agent message, use them as a boundary
         if self.last_agent_response_tail:
             # Normalize both texts for comparison
             normalized_current = self._normalize_text(current_text)

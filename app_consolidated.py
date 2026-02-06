@@ -1044,6 +1044,75 @@ def chat_with_ai():
         if not message:
             return jsonify({'success': False, 'error': 'Message is required'}), 400
 
+        # Route to Zypher Agent if selected
+        if model == 'zypher':
+            try:
+                zypher_url = os.getenv('ZYPHER_URL', 'http://localhost:8000')
+                logger.info(f"Routing to Zypher Agent at {zypher_url}")
+
+                response = requests.post(
+                    f"{zypher_url}/api/chat",
+                    json={
+                        'message': message,
+                        'model': 'claude-sonnet-4-20250514',
+                        'history': history
+                    },
+                    timeout=30
+                )
+
+                if response.status_code == 200:
+                    zypher_data = response.json()
+                    if zypher_data.get('success'):
+                        response_text = zypher_data.get('response', '')
+
+                        # Send response back to WeChat if enabled
+                        if send_to_wechat:
+                            logger.info("Attempting to send Zypher response back to WeChat...")
+                            try:
+                                current_chat = wechat_service.get_current_chat()
+                                invalid_chats = ['No active chat', 'File Transfer', 'Search', 'Photos and Videos',
+                                                'Favorites', 'Official Accounts', 'Settings', 'Profile', 'Log Out',
+                                                'Help', 'Moments']
+
+                                if current_chat and current_chat not in invalid_chats:
+                                    if wechat_service.ocr_reader:
+                                        wechat_service.ocr_reader.mark_as_agent_message(response_text)
+
+                                    success = wechat_service.send_message(response_text, current_chat)
+
+                                    if success and wechat_service.ocr_reader:
+                                        wechat_service.ocr_reader.mark_as_agent_message(response_text)
+                                        socketio.emit('log', {
+                                            'type': 'success',
+                                            'message': f'🤖 Sent Zypher response to {current_chat}',
+                                            'timestamp': time.time()
+                                        })
+                            except Exception as send_error:
+                                logger.error(f"Error sending Zypher response to WeChat: {send_error}")
+
+                        return jsonify({
+                            'success': True,
+                            'response': response_text,
+                            'model': 'zypher'
+                        })
+                else:
+                    return jsonify({
+                        'success': False,
+                        'error': f'Zypher Agent returned status {response.status_code}'
+                    }), 500
+
+            except requests.exceptions.ConnectionError:
+                return jsonify({
+                    'success': False,
+                    'error': 'Zypher Agent service is not running. Start it with: cd zypher-agent && deno task start'
+                }), 503
+            except Exception as e:
+                logger.error(f"Error connecting to Zypher Agent: {e}")
+                return jsonify({
+                    'success': False,
+                    'error': f'Failed to connect to Zypher Agent: {str(e)}'
+                }), 500
+
         # Load AI settings
         ai_settings = load_ai_settings()
 
@@ -1068,13 +1137,14 @@ def chat_with_ai():
             system_prompt += "1. Always start responses with '[Agent]'\n"
             system_prompt += "2. Write like you're texting - casual, conversational, natural\n"
             system_prompt += "3. CRITICAL: Keep responses under 50 words - be extremely concise\n"
-            system_prompt += "4. NEVER use line breaks or multiple paragraphs - everything on one line\n"
-            system_prompt += "5. For simple questions, use 1-5 words. For complex topics, use 1-2 short sentences max\n\n"
+            system_prompt += "4. MATCH THE USER'S TONE - if they're casual, be casual; if formal, be formal; if excited, be excited\n"
+            system_prompt += "5. NEVER use line breaks or multiple paragraphs - everything on one line\n"
+            system_prompt += "6. For simple questions, use 1-5 words. For complex topics, use 1-2 short sentences max\n\n"
             system_prompt += "Examples:\n"
             system_prompt += "Simple: '[Agent] Sure!' or '[Agent] Got it'\n"
             system_prompt += "Moderate: '[Agent] That sounds interesting, tell me more'\n"
             system_prompt += "Complex: '[Agent] I can help with that - send me the details'\n\n"
-            system_prompt += "Key rule: NO line breaks, under 50 words, keep it conversational like instant messaging."
+            system_prompt += "Key rules: NO line breaks, under 50 words, match user's tone, keep it conversational like instant messaging."
 
             # Convert history to Claude format
             messages = []

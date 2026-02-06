@@ -4,15 +4,12 @@ import { ACTIONS } from '../context/AppReducer';
 import apiService from '../services/api';
 import AISettings from './AISettings';
 import CurrentChatDisplay from './CurrentChatDisplay';
-import OCRPreview from './OCRPreview';
 import './Sidebar.css';
 
 const Sidebar = () => {
   const { dispatch } = useAppContext();
   const [agentRunning, setAgentRunning] = useState(false);
   const [chatName, setChatName] = useState('File');
-  const [message, setMessage] = useState('');
-  const [isSending, setIsSending] = useState(false);
   const [windowInfo, setWindowInfo] = useState(null);
   const [backendConfig, setBackendConfig] = useState({
     ai_model: 'claude-sonnet-4-5-20250929',
@@ -42,49 +39,6 @@ const Sidebar = () => {
         timestamp: Date.now()
       }
     });
-  };
-
-  const sendMessage = async () => {
-    if (isSending || !message.trim()) return;
-
-    setIsSending(true);
-    try {
-      let targetChat = chatName || 'File';
-
-      if (targetChat.toLowerCase() === 'file') {
-        const searchResponse = await apiService.searchChat('File');
-        if (searchResponse.data.success && searchResponse.data.results.length > 0) {
-          targetChat = searchResponse.data.results[0].name;
-          addLog(`Using chat: ${targetChat}`, 'info');
-        }
-      }
-
-      addLog(`Sending: ${message}`, 'info');
-      const response = await apiService.sendMessage(targetChat, message);
-
-      if (response.data.success) {
-        addLog('Message sent successfully', 'success');
-        setMessage('');
-      } else {
-        addLog(`Failed to send: ${response.data.error}`, 'error');
-      }
-    } catch (error) {
-      addLog(`Error: ${error.message}`, 'error');
-    } finally {
-      setIsSending(false);
-    }
-  };
-
-  const sendQuickMessage = async (quickMsg) => {
-    setMessage(quickMsg);
-    setTimeout(() => sendMessage(), 100);
-  };
-
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
   };
 
   const loadBackendConfig = async () => {
@@ -439,42 +393,6 @@ const Sidebar = () => {
             />
             <span className="toggle-text">Command Mode</span>
           </label>
-        </div>
-      </div>
-
-      {/* OCR Live Preview */}
-      <OCRPreview />
-
-      {/* Send Message to WeChat */}
-      <div className="section">
-        <h3 className="section-title">Send Message to WeChat</h3>
-        <div className="message-box">
-          <input
-            type="text"
-            className="message-input"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Type your message..."
-          />
-          <button
-            className="send-btn"
-            onClick={sendMessage}
-            disabled={isSending || !message.trim()}
-          >
-            Send 📤
-          </button>
-        </div>
-        <div className="quick-actions">
-          <button className="action-btn" onClick={() => sendQuickMessage('Hello!')}>
-            👋 Hello
-          </button>
-          <button className="action-btn" onClick={() => sendQuickMessage('Test message')}>
-            🧪 Test
-          </button>
-          <button className="action-btn" onClick={() => sendQuickMessage('Status check')}>
-            📊 Status
-          </button>
         </div>
       </div>
 

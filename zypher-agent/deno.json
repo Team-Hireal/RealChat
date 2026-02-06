@@ -1,0 +1,10 @@
+{
+  "tasks": {
+    "start": "deno run -A main.ts",
+    "dev": "deno run -A --watch main.ts"
+  },
+  "imports": {
+    "@zypher/agent": "jsr:@zypher/agent",
+    "rxjs-for-await": "npm:rxjs-for-await"
+  }
+}
