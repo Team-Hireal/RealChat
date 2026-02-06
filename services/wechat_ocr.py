@@ -19,6 +19,7 @@ class WeChatOCR:
     def __init__(self):
         self.last_messages = []
         self.agent_messages = set()  # Track messages sent by agent
+        self.recent_agent_responses = []  # Track last 10 agent responses for comparison
         self.debug_screenshot_path = '/tmp/wechat_ocr_debug.png'  # Debug screenshot path
         self.previous_raw_text = []  # Store previous OCR text lines for comparison
         self.detected_messages = set()  # Track all previously detected messages
@@ -259,8 +260,8 @@ class WeChatOCR:
         if not text or len(text.strip()) < 3:
             return False
 
-        # Filter out [Agent] messages (additional safety check)
-        if text.strip().startswith('[Agent]'):
+        # Filter out [Agent] messages (check if [Agent] appears ANYWHERE in text)
+        if '[Agent]' in text or '[agent]' in text.lower():
             return False
 
         # Filter out timestamps (e.g., "21:30", "01/26", "12:05")
@@ -293,6 +294,30 @@ class WeChatOCR:
     def _normalize_text(self, text: str) -> str:
         """Normalize text for comparison"""
         return ' '.join(text.lower().split())
+
+    def _is_agent_response(self, text: str) -> bool:
+        """Check if text matches any recent agent responses"""
+        # First check: if [Agent] appears anywhere in text, it's an agent message
+        if '[Agent]' in text or '[agent]' in text.lower():
+            logger.info(f"Text contains [Agent] marker: '{text[:50]}...'")
+            return True
+
+        # Remove [Agent] prefix if present
+        clean_text = text.replace('[Agent]', '').replace('[agent]', '').strip()
+        normalized_text = self._normalize_text(clean_text)
+
+        # Check against recent agent responses
+        for agent_response in self.recent_agent_responses:
+            normalized_agent = self._normalize_text(agent_response)
+
+            # Check for exact match or if one contains the other
+            if (normalized_text == normalized_agent or
+                normalized_agent in normalized_text or
+                normalized_text in normalized_agent):
+                logger.info(f"Text matches recent agent response: '{text[:50]}...' matches '{agent_response[:50]}...'")
+                return True
+
+        return False
 
     def _get_message_signature(self, text: str, num_words: int = 5) -> str:
         """Get first N words of message as signature"""
@@ -496,8 +521,14 @@ class WeChatOCR:
 
                     if cleaned_text and self._is_valid_message(cleaned_text):
                         # Filter out [Agent] messages (messages from the AI itself)
-                        if cleaned_text.strip().startswith('[Agent]'):
+                        # Check if [Agent] appears ANYWHERE in the text, not just at start
+                        if '[Agent]' in cleaned_text or '[agent]' in cleaned_text.lower():
                             logger.info(f"Filtered [Agent] message: {cleaned_text[:50]}...")
+                            return []
+
+                        # Check if text matches any recent agent responses
+                        if self._is_agent_response(cleaned_text):
+                            logger.info(f"Filtered agent response: {cleaned_text[:50]}...")
                             return []
 
                         # Check if message was already detected
@@ -558,6 +589,17 @@ class WeChatOCR:
     def mark_as_agent_message(self, text: str):
         """Mark a message as sent by the agent (to filter it out)"""
         self.agent_messages.add(text)
+
+        # Also add to recent responses list for robust comparison
+        # Remove [Agent] prefix for comparison
+        clean_text = text.replace('[Agent]', '').strip()
+        self.recent_agent_responses.append(clean_text)
+
+        # Keep only last 10 responses
+        if len(self.recent_agent_responses) > 10:
+            self.recent_agent_responses = self.recent_agent_responses[-10:]
+
+        logger.info(f"Marked as agent message: {text[:50]}... (tracking {len(self.recent_agent_responses)} recent responses)")
 
     def mark_as_user_message(self, text: str):
         """Mark a user message that agent is responding to (to avoid echo)"""

@@ -1064,21 +1064,19 @@ def chat_with_ai():
             )
 
             # Build system prompt with [Agent] prefix requirement
-            system_prompt = "You are a WeChat messaging assistant. Follow these MANDATORY rules:\n\n"
-            system_prompt += "1. ALWAYS start with '[Agent]' prefix (including brackets)\n"
-            system_prompt += "2. MAXIMUM response length: 10 words (shorter is better)\n"
-            system_prompt += "3. FORBIDDEN: Line breaks, newlines, multiple sentences\n"
-            system_prompt += "4. REQUIRED: Single sentence only, no \\n characters\n\n"
-            system_prompt += "Response examples:\n"
-            system_prompt += "- '[Agent] Sure!'\n"
-            system_prompt += "- '[Agent] Got it'\n"
-            system_prompt += "- '[Agent] That sounds great'\n"
-            system_prompt += "- '[Agent] I can help with that'\n"
-            system_prompt += "- '[Agent] Interesting question'\n\n"
-            system_prompt += "For greetings: '[Agent] Hey!' or '[Agent] Hi there!'\n"
-            system_prompt += "For questions: '[Agent] What do you need?' or '[Agent] Tell me more'\n"
-            system_prompt += "For confirmations: '[Agent] Done!' or '[Agent] All set!'\n\n"
-            system_prompt += "VIOLATION of these rules will cause system errors. Keep it SHORT and CASUAL like text messaging."
+            system_prompt = "CRITICAL INSTRUCTIONS - FOLLOW EXACTLY:\n\n"
+            system_prompt += "Format: '[Agent]' + 1-5 words maximum\n"
+            system_prompt += "NO paragraphs, NO line breaks, NO explanations\n"
+            system_prompt += "Just brief responses like texting\n\n"
+            system_prompt += "Valid responses:\n"
+            system_prompt += "[Agent] Sure\n"
+            system_prompt += "[Agent] Got it\n"
+            system_prompt += "[Agent] Okay\n"
+            system_prompt += "[Agent] Tell me more\n"
+            system_prompt += "[Agent] What's up\n\n"
+            system_prompt += "INVALID (too long, has line breaks):\n"
+            system_prompt += "[Agent] Hello! I'm Claude...\n\n"
+            system_prompt += "RULE: Maximum 5 words after [Agent]. No exceptions."
 
             # Convert history to Claude format
             messages = []
@@ -1113,7 +1111,7 @@ def chat_with_ai():
             try:
                 response = client.messages.create(
                     model=model_name,
-                    max_tokens=50,  # Limit to 50 tokens to enforce brevity
+                    max_tokens=20,  # Strict limit: 20 tokens = ~15 words max
                     system=system_prompt,
                     messages=messages
                 )
@@ -1122,11 +1120,22 @@ def chat_with_ai():
                 logger.warning(f"System parameter not supported, retrying without it: {system_error}")
                 response = client.messages.create(
                     model=model_name,
-                    max_tokens=50,  # Limit to 50 tokens to enforce brevity
+                    max_tokens=20,  # Strict limit: 20 tokens = ~15 words max
                     messages=messages
                 )
 
             response_text = response.content[0].text
+
+            # SAFETY CHECK: Remove all line breaks and newlines
+            response_text = response_text.replace('\n', ' ').replace('\r', ' ')
+            # Remove multiple spaces
+            response_text = ' '.join(response_text.split())
+
+            # SAFETY CHECK: Truncate if too long (max 7 words after [Agent] prefix)
+            words = response_text.split()
+            if len(words) > 8:  # [Agent] + 7 words
+                response_text = ' '.join(words[:8])
+                logger.info(f"Truncated long response to 7 words")
 
             # SAFETY CHECK: Ensure [Agent] prefix is always present
             if not response_text.strip().startswith('[Agent]'):
@@ -1150,16 +1159,22 @@ def chat_with_ai():
 
                     if current_chat and current_chat not in invalid_chats:
                         logger.info(f"Valid chat detected, sending message to: {current_chat}")
+
+                        # Mark as agent message BEFORE sending to prevent OCR from detecting it
+                        if wechat_service.ocr_reader:
+                            wechat_service.ocr_reader.mark_as_agent_message(response_text)
+                            logger.info("Pre-marked message as agent message (before sending)")
+
                         # Send message to WeChat
                         success = wechat_service.send_message(response_text, current_chat)
 
                         if success:
                             logger.info(f"✅ Sent AI response to WeChat: {current_chat}")
 
-                            # Mark as agent message so OCR doesn't pick it up
+                            # Mark as agent message again after sending (double safety)
                             if wechat_service.ocr_reader:
                                 wechat_service.ocr_reader.mark_as_agent_message(response_text)
-                                logger.info("Marked message as agent message for OCR filtering")
+                                logger.info("Post-marked message as agent message (after sending)")
 
                             # Emit log event
                             socketio.emit('log', {
