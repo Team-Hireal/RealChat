@@ -41,7 +41,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 wechat_config = {
     'chat_names': os.getenv('WECHAT_CHAT_NAMES', 'File Transfer,文件传输助手').split(','),
     'scan_method': os.getenv('WECHAT_SCAN_METHOD', 'applescript'),
-    'auto_detect_messages': True  # Auto-detect incoming messages
+    'auto_detect_messages': True  # Auto-detect incoming messages - ENABLED for OCR
 }
 wechat_service = WeChatService(wechat_config)
 
@@ -228,6 +228,7 @@ def send_message():
         data = request.json
         message = data.get('message')
         chat_name = data.get('chat_name')
+        mark_as_agent = data.get('mark_as_agent', False)  # Flag to mark as agent message
 
         if not message:
             return jsonify({"success": False, "error": "Message is required"}), 400
@@ -237,6 +238,11 @@ def send_message():
             selected_chat = chat_name
 
         success = wechat_service.send_message(message, chat_name)
+
+        # Mark message as sent by agent (for OCR filtering)
+        if success and mark_as_agent:
+            wechat_service.mark_message_as_sent(message)
+            logger.info(f"Marked message as agent message: {message[:50]}...")
 
         # Emit chat change event
         if success and chat_name:
@@ -1062,33 +1068,13 @@ def chat_with_ai():
                 'content': message
             })
 
-            # Call Claude API with configured model and system prompt
+            # Call Claude API with configured model
             model_name = ai_settings.get('model', 'claude-sonnet-4-5-20250929')
-            system_prompt = "IMPORTANT: You MUST start EVERY response with '[Agent]' (including the square brackets). " \
-                          "You are a friendly AI assistant helping with WeChat conversations. " \
-                          "Respond naturally and conversationally. Keep responses VERY brief (1-2 sentences max) and helpful. " \
-                          "Be concise and direct. Always start with '[Agent]'."
-
-            # Check if using custom endpoint
-            base_url = ai_settings.get('base_url', 'https://api.anthropic.com')
-            is_custom_endpoint = 'anthropic.com' not in base_url.lower()
-
-            # For custom endpoints, prepend system prompt to first message
-            if is_custom_endpoint and messages:
-                messages[0]['content'] = f"{system_prompt}\n\nUser: {messages[0]['content']}"
-                response = client.messages.create(
-                    model=model_name,
-                    max_tokens=2048,
-                    messages=messages
-                )
-            else:
-                # Official Anthropic API supports system parameter
-                response = client.messages.create(
-                    model=model_name,
-                    max_tokens=2048,
-                    system=system_prompt,
-                    messages=messages
-                )
+            response = client.messages.create(
+                model=model_name,
+                max_tokens=2048,
+                messages=messages
+            )
 
             response_text = response.content[0].text
             logger.info(f'AI responded to: {message[:50]}...')
@@ -1392,11 +1378,6 @@ def emit_current_chat_updates():
                     if current_time - last_ocr_check >= 1.0:
                         last_ocr_check = current_time
 
-                        # Only run OCR if WeChat is the frontmost (active) window
-                        if not wechat_service.is_wechat_frontmost():
-                            logger.debug("[AUTO-DETECT] WeChat is not frontmost, skipping OCR")
-                            continue
-
                         try:
                             logger.info("[AUTO-DETECT] Running OCR scan...")
                             # Run OCR to extract messages
@@ -1417,7 +1398,7 @@ def emit_current_chat_updates():
                                         'timestamp': current_time
                                     })
 
-                                    # Log all new messages to activity log
+                                    # Emit each new message to activity log (for visibility)
                                     for msg in new_messages:
                                         timestamp = msg.get('timestamp', 'Unknown time')
                                         text = msg.get('text', '')
@@ -1428,22 +1409,24 @@ def emit_current_chat_updates():
                                                 'timestamp': current_time
                                             })
 
-                                    # Only send the LAST (newest) message to chatbox for AI processing
-                                    last_msg = new_messages[-1]
-                                    last_timestamp = last_msg.get('timestamp', 'Unknown time')
-                                    last_text = last_msg.get('text', '')
+                                    # IMPORTANT: Only send the LAST (newest) message to chatbox for AI processing
+                                    # This prevents the AI from responding to every message in the history
+                                    if new_messages:
+                                        last_msg = new_messages[-1]  # Get the last (newest) message
+                                        last_timestamp = last_msg.get('timestamp', 'Unknown time')
+                                        last_text = last_msg.get('text', '')
 
-                                    if last_text:
-                                        logger.info(f"📤 Sending last message to chatbox: {last_text[:50]}...")
-                                        socketio.emit('wechat_message', {
-                                            'timestamp': last_timestamp,
-                                            'text': last_text,
-                                            'source': 'wechat'
-                                        })
+                                        if last_text:
+                                            logger.info(f"📤 Sending ONLY the latest message to chatbox: {last_text[:50]}...")
+                                            socketio.emit('wechat_message', {
+                                                'timestamp': last_timestamp,
+                                                'text': last_text,
+                                                'source': 'wechat'
+                                            })
 
                                     # Update last_messages to current messages
                                     last_messages = messages
-                                    logger.info(f"✅ Emitted 1 message to chatbox (out of {len(new_messages)} new)")
+                                    logger.info(f"✅ Emitted {len(new_messages)} messages to activity log, 1 to chatbox")
                                 else:
                                     logger.debug("No new messages (all duplicates)")
 

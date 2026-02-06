@@ -32,10 +32,6 @@ def send_to_file_transfer(message):
             key code 51  -- Delete
             delay 0.3
 
-            -- Type "File Transfer" exactly
-            keystroke "File Transfer"
-            delay 1.0
-
             -- Press Down arrow to select first result
             key code 125  -- Down arrow
             delay 0.3

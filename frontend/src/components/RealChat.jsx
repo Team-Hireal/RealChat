@@ -155,11 +155,7 @@ const RealChat = () => {
       return;
     }
 
-    setLoading(true);
-    const data = await apiCall('/api/wechat/send', 'POST', {
-      message: testMessage,
-      chat_name: selectedChat || 'File Transfer'
-    });
+
 
     if (data.success) {
       addLog(`Message sent: ${testMessage}`, 'success');
@@ -170,7 +166,7 @@ const RealChat = () => {
 
   const readMessages = async () => {
     setLoading(true);
-    const chatName = selectedChat || 'File Transfer';
+    const chatName = selectedChat;
     addLog(`Reading messages from ${chatName}...`, 'info');
 
     const data = await apiCall(`/api/wechat/read?structured=true&chat_name=${encodeURIComponent(chatName)}`);
@@ -290,9 +286,7 @@ const RealChat = () => {
                 Send
               </button>
             </div>
-            <div className="chat-info">
-              Target: <strong>{selectedChat || 'File Transfer'}</strong>
-            </div>
+
           </section>
 
           <section className="section">

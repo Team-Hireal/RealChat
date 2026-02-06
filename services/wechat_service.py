@@ -377,8 +377,20 @@ class WeChatService:
             if output == "no_window" or output == "":
                 return None
 
-            # Filter out common non-chat titles
-            non_chat_titles = ['WeChat', '微信', 'Chats', '聊天', 'WeChat (Window)', 'Contacts', '通讯录']
+            # Filter out common non-chat titles and UI elements
+            non_chat_titles = [
+                'WeChat', '微信', 'Chats', '聊天', 'WeChat (Window)', 'Contacts', '通讯录',
+                'File Transfer', '文件传输助手',  # File Transfer assistant
+                'Search', 'Search cha', 'Search chat', '搜索',  # Search UI
+                'Photos and Videos', '照片和视频',  # Media viewer
+                'Favorites', '收藏',  # Favorites
+                'Official Accounts', '公众号',  # Official accounts
+                'Settings', '设置',  # Settings
+                'Profile', '个人信息',  # Profile
+                'Log Out', '退出登录',  # Log out
+                'Help', '帮助',  # Help
+                'Moments', '朋友圈',  # Moments/Timeline
+            ]
             if output in non_chat_titles:
                 return None
 
@@ -449,8 +461,22 @@ class WeChatService:
                     key code 36  -- Enter (opens chat)
                     delay 0.3
 
-                    -- Close search (ESC)
+                    -- Close search (ESC) and clear search field
                     key code 53  -- ESC
+                    delay 0.2
+
+                    -- Open search again briefly to clear it
+                    keystroke "f" using {{command down}}
+                    delay 0.1
+                    keystroke "a" using {{command down}}
+                    delay 0.05
+                    key code 51  -- Delete
+                    delay 0.05
+                    key code 53  -- ESC to close
+                    delay 0.2
+
+                    -- Click in message input area to ensure focus
+                    -- Press Tab or click to move focus to message input
                     delay 0.1
 
                     return "SUCCESS"
@@ -521,6 +547,17 @@ class WeChatService:
 
         tell application "System Events"
             tell process "WeChat"
+                -- Click in the message input area to ensure focus
+                -- (This helps clear any residual text from search)
+                key code 48 using {{tab down}}  -- Tab to message input
+                delay 0.1
+
+                -- Clear any existing text in input field
+                keystroke "a" using {{command down}}
+                delay 0.05
+                key code 51  -- Delete
+                delay 0.1
+
                 -- Type message (chat should already be open)
                 keystroke msg
                 delay 0.15

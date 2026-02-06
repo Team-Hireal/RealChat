@@ -102,7 +102,14 @@ class AIService:
 
             # Extract response text
             if 'content' in data and len(data['content']) > 0:
-                return data['content'][0]['text']
+                response_text = data['content'][0]['text']
+
+                # SAFETY CHECK: Ensure [Agent] prefix is always present
+                if not response_text.strip().startswith('[Agent]'):
+                    response_text = f"[Agent] {response_text}"
+                    logger.info("Added [Agent] prefix to response")
+
+                return response_text
             else:
                 logger.error(f"Unexpected API response format: {data}")
                 return None
@@ -171,7 +178,14 @@ class AIService:
                             })
 
         # Get response with conversation history
-        return self.get_response(user_message, system_prompt=system_prompt, conversation_history=conversation_history)
+        response = self.get_response(user_message, system_prompt=system_prompt, conversation_history=conversation_history)
+
+        # SAFETY CHECK: Ensure [Agent] prefix is always present
+        if response and not response.strip().startswith('[Agent]'):
+            response = f"[Agent] {response}"
+            logger.info("Added [Agent] prefix to chat response")
+
+        return response
 
     def analyze_message_importance(self, message: str, contact_info: Dict = None) -> Dict:
         """

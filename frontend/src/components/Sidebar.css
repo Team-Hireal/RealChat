@@ -210,3 +210,31 @@ select.input {
   font-weight: 600;
   color: var(--text-primary);
 }
+
+/* OCR Debug Image */
+.debug-image-container {
+  background: var(--glass-bg);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  margin-bottom: 15px;
+  border: 1px solid var(--glass-border);
+  min-height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.debug-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  display: block;
+}
+
+.debug-image-placeholder,
+.debug-image-error {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  text-align: center;
+  padding: 20px;
+}

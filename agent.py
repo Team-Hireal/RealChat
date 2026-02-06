@@ -19,13 +19,11 @@ AI_API_KEY = os.getenv('AI_API_KEY')
 AI_BASE_URL = os.getenv('AI_BASE_URL')
 AI_MODEL = os.getenv('AI_MODEL', 'claude-sonnet-4-5-20250929')
 # Try both English and Chinese names for File Transfer chat
-CHAT_NAMES = ["File Transfer", "文件传输助手"]
 
 def log(msg):
     print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
 
 def send_message(text):
-    """Send message to WeChat File Transfer Assistant with verification"""
     # Write to temp file
     with open('/tmp/msg.txt', 'w') as f:
         f.write(text)

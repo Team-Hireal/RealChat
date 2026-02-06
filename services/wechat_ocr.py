@@ -19,6 +19,7 @@ class WeChatOCR:
     def __init__(self):
         self.last_messages = []
         self.agent_messages = set()  # Track messages sent by agent
+        self.debug_image_path = Path(__file__).parent.parent / 'debug_ocr.png'  # Persistent debug image
 
     def capture_message_area(self, output_path: str) -> bool:
         """
@@ -80,14 +81,33 @@ class WeChatOCR:
                                   capture_output=True, text=True, timeout=5)
             output = result.stdout.strip()
 
+            logger.info(f"AppleScript output: '{output}'")
+            logger.info(f"AppleScript stderr: '{result.stderr}'")
+            logger.info(f"AppleScript returncode: {result.returncode}")
+
             if output == "no_window":
                 logger.error("No WeChat window found")
+                logger.error("HINT: This might be a macOS accessibility permissions issue.")
+                logger.error("Grant accessibility permissions to Python or Terminal in System Settings → Privacy & Security → Accessibility")
+                return False
+
+            if not output or output == "":
+                logger.error(f"Empty output from AppleScript. stderr: {result.stderr}")
                 return False
 
             # Parse window bounds
             x, y, w, h = map(int, output.split(','))
 
             logger.info(f"WeChat window at: x={x}, y={y}, w={w}, h={h}")
+
+            # Validate window bounds
+            if w <= 0 or h <= 0:
+                logger.error(f"Invalid window size: w={w}, h={h}")
+                return False
+
+            if x < -10000 or y < -10000:
+                logger.error(f"Window appears to be off-screen: x={x}, y={y}")
+                return False
 
             # Adaptive message area calculation based on window size
             # Detect window type: pop-up windows are typically narrower
@@ -117,6 +137,17 @@ class WeChatOCR:
                 msg_w = w - sidebar_width - 30  # Remaining width minus margins
                 msg_h = h - title_height - input_height
                 logger.info(f"Detected main window (w={w}), sidebar={sidebar_width}px")
+
+            # Validate calculated message area
+            if msg_w <= 0 or msg_h <= 0:
+                logger.error(f"Invalid message area size: w={msg_w}, h={msg_h}")
+                return False
+
+            # Ensure message area is within reasonable bounds
+            if msg_w > 5000 or msg_h > 5000:
+                logger.warning(f"Message area seems too large: w={msg_w}, h={msg_h}, capping to 2000px")
+                msg_w = min(msg_w, 2000)
+                msg_h = min(msg_h, 2000)
 
             logger.info(f"Message area: x={msg_x}, y={msg_y}, w={msg_w}, h={msg_h}")
 
@@ -378,6 +409,14 @@ class WeChatOCR:
             try:
                 if not self.capture_message_area(screenshot_path):
                     return []
+
+                # Save a copy for debugging
+                import shutil
+                try:
+                    shutil.copy2(screenshot_path, str(self.debug_image_path))
+                    logger.info(f"Debug screenshot saved to {self.debug_image_path}")
+                except Exception as e:
+                    logger.warning(f"Could not save debug screenshot: {e}")
 
                 # Extract text using Vision OCR
                 text_lines = self.extract_text_vision(screenshot_path)
