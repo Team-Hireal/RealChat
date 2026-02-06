@@ -85,7 +85,8 @@ const ChatBox = () => {
         body: JSON.stringify({
           message: messageText,
           model: selectedModel,
-          history: currentMessages
+          history: currentMessages,
+          send_to_wechat: false  // Don't send from backend, we'll send from frontend
         })
       });
 
@@ -99,6 +100,40 @@ const ChatBox = () => {
           timestamp: new Date().toLocaleTimeString()
         };
         setMessages(prev => [...prev, aiMessage]);
+
+        // Send AI response to WeChat - simplified for testing
+        try {
+          // Get current chat from backend
+          const chatResponse = await fetch('http://localhost:5001/api/wechat/current-chat');
+          const chatData = await chatResponse.json();
+
+          if (chatData.success && chatData.chat) {
+            const currentChat = chatData.chat;
+            console.log(`Sending AI response to WeChat chat: ${currentChat}`);
+
+            // Send message directly to WeChat without any filtering
+            const sendResponse = await fetch('http://localhost:5001/api/wechat/send', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                chat_name: currentChat,
+                message: data.response
+              })
+            });
+
+            const sendData = await sendResponse.json();
+
+            if (sendData.success) {
+              console.log('✅ AI response sent to WeChat successfully');
+            } else {
+              console.warn('⚠️ Failed to send AI response to WeChat:', sendData.error);
+            }
+          }
+        } catch (sendError) {
+          console.error('Error sending AI response to WeChat:', sendError);
+        }
       } else {
         const errorMessage = {
           role: 'error',

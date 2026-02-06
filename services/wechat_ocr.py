@@ -260,20 +260,20 @@ class WeChatOCR:
 
     def _extract_new_text(self, current_lines: List[str], previous_lines: List[str]) -> List[str]:
         """
-        Extract only the NEWEST text line (last new message)
+        Extract ALL new text lines (complete new message)
 
         Args:
             current_lines: Current OCR text lines
             previous_lines: Previous OCR text lines
 
         Returns:
-            List containing only the newest text line (or empty if no new text)
+            List containing all new text lines
         """
-        # If no previous scan, return only the LAST line (newest message)
+        # If no previous scan, return all current lines
         if not previous_lines:
             if current_lines:
-                logger.info(f"First scan: returning last line only (out of {len(current_lines)} total)")
-                return [current_lines[-1]]
+                logger.info(f"First scan: returning all {len(current_lines)} lines")
+                return current_lines
             return []
 
         # Convert to sets for comparison
@@ -285,10 +285,10 @@ class WeChatOCR:
             if line not in prev_set:
                 new_lines.append(line)
 
-        # If we found new lines, return ONLY THE LAST ONE (newest message)
+        # Return ALL new lines (complete message)
         if new_lines:
-            logger.info(f"Found {len(new_lines)} new text lines, returning ONLY the last one: '{new_lines[-1][:50]}...'")
-            return [new_lines[-1]]
+            logger.info(f"Found {len(new_lines)} new text lines, returning all of them")
+            return new_lines
 
         # If no new lines found, check if the last line changed (edited message)
         if len(current_lines) > 0 and len(previous_lines) > 0:
@@ -449,7 +449,12 @@ class WeChatOCR:
                     cleaned_text = self._filter_ui_elements(combined_text)
 
                     if cleaned_text:
-                        # Check if it's an agent message
+                        # Filter out [Agent] messages (messages from the AI itself)
+                        if cleaned_text.strip().startswith('[Agent]'):
+                            logger.info(f"Filtered [Agent] message: {cleaned_text[:50]}...")
+                            return []
+
+                        # Check if it's an agent message (additional check)
                         is_agent_msg = False
                         normalized_msg = self._normalize_text(cleaned_text)
                         msg_signature = self._get_message_signature(cleaned_text)

@@ -480,11 +480,11 @@ class WeChatService:
 
     def send_message(self, text: str, chat_name: str = None) -> bool:
         """
-        Send message to WeChat chat
+        Send message to WeChat chat (simplified - assumes chat is already open)
 
         Args:
             text: Message content
-            chat_name: Target chat name (defaults to File Transfer)
+            chat_name: Target chat name (not used in simplified version)
 
         Returns:
             bool: Success status
@@ -494,17 +494,7 @@ class WeChatService:
             logger.error("WeChat is not ready for automation")
             return False
 
-        # Use provided chat name or default to first configured chat
-        target_chat = chat_name if chat_name else self.chat_names[0]
-
-        # Step 1: Open the chat (this changes the window title)
-        logger.info(f"Step 1: Opening chat '{target_chat}'")
-        if not self.open_chat(target_chat):
-            logger.error(f"Failed to open chat: {target_chat}")
-            return False
-
-        # Step 2: Send the message
-        logger.info(f"Step 2: Sending message to '{target_chat}'")
+        logger.info(f"Sending message directly (assuming chat is already open)")
 
         # Write message to temp file
         temp_file = '/tmp/wechat_msg.txt'
@@ -521,7 +511,7 @@ class WeChatService:
 
         tell application "System Events"
             tell process "WeChat"
-                -- Type message (chat should already be open)
+                -- Type message directly (chat should already be open)
                 keystroke msg
                 delay 0.15
 
@@ -538,7 +528,7 @@ class WeChatService:
             result = subprocess.run(['osascript', '-e', script],
                                   capture_output=True, text=True,
                                   timeout=10, check=True)
-            logger.info(f"✅ Message sent to {target_chat}")
+            logger.info(f"✅ Message sent successfully")
             return True
         except Exception as e:
             logger.error(f"❌ Failed to send message: {e}")
