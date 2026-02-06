@@ -1064,19 +1064,17 @@ def chat_with_ai():
             )
 
             # Build system prompt with [Agent] prefix requirement
-            system_prompt = "CRITICAL INSTRUCTIONS - FOLLOW EXACTLY:\n\n"
-            system_prompt += "Format: '[Agent]' + 1-5 words maximum\n"
-            system_prompt += "NO paragraphs, NO line breaks, NO explanations\n"
-            system_prompt += "Just brief responses like texting\n\n"
-            system_prompt += "Valid responses:\n"
-            system_prompt += "[Agent] Sure\n"
-            system_prompt += "[Agent] Got it\n"
-            system_prompt += "[Agent] Okay\n"
-            system_prompt += "[Agent] Tell me more\n"
-            system_prompt += "[Agent] What's up\n\n"
-            system_prompt += "INVALID (too long, has line breaks):\n"
-            system_prompt += "[Agent] Hello! I'm Claude...\n\n"
-            system_prompt += "RULE: Maximum 5 words after [Agent]. No exceptions."
+            system_prompt = "You are a WeChat messaging assistant. Communication style:\n\n"
+            system_prompt += "1. Always start responses with '[Agent]'\n"
+            system_prompt += "2. Write like you're texting - casual, conversational, natural\n"
+            system_prompt += "3. Keep responses concise but complete - say what's needed, nothing more\n"
+            system_prompt += "4. NEVER use line breaks or multiple paragraphs - everything on one line\n"
+            system_prompt += "5. Use 1-2 sentences for simple questions, more if needed for complex topics\n\n"
+            system_prompt += "Examples:\n"
+            system_prompt += "Simple: '[Agent] Sure!' or '[Agent] Got it'\n"
+            system_prompt += "Moderate: '[Agent] That sounds interesting, tell me more about it'\n"
+            system_prompt += "Complex: '[Agent] I can help with that - just send me the details and I'll take a look'\n\n"
+            system_prompt += "Key rule: NO line breaks, keep it conversational like instant messaging."
 
             # Convert history to Claude format
             messages = []
@@ -1089,7 +1087,7 @@ def chat_with_ai():
                 })
                 messages.append({
                     'role': 'assistant',
-                    'content': '[Agent] Got it, keeping it short!'
+                    'content': '[Agent] Got it, I\'ll keep responses conversational and on one line'
                 })
 
             for msg in history:
@@ -1111,7 +1109,7 @@ def chat_with_ai():
             try:
                 response = client.messages.create(
                     model=model_name,
-                    max_tokens=20,  # Strict limit: 20 tokens = ~15 words max
+                    max_tokens=200,  # Allow flexibility for conversational responses
                     system=system_prompt,
                     messages=messages
                 )
@@ -1120,7 +1118,7 @@ def chat_with_ai():
                 logger.warning(f"System parameter not supported, retrying without it: {system_error}")
                 response = client.messages.create(
                     model=model_name,
-                    max_tokens=20,  # Strict limit: 20 tokens = ~15 words max
+                    max_tokens=200,  # Allow flexibility for conversational responses
                     messages=messages
                 )
 
@@ -1130,12 +1128,6 @@ def chat_with_ai():
             response_text = response_text.replace('\n', ' ').replace('\r', ' ')
             # Remove multiple spaces
             response_text = ' '.join(response_text.split())
-
-            # SAFETY CHECK: Truncate if too long (max 7 words after [Agent] prefix)
-            words = response_text.split()
-            if len(words) > 8:  # [Agent] + 7 words
-                response_text = ' '.join(words[:8])
-                logger.info(f"Truncated long response to 7 words")
 
             # SAFETY CHECK: Ensure [Agent] prefix is always present
             if not response_text.strip().startswith('[Agent]'):
