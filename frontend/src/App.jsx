@@ -92,7 +92,7 @@ function AppContent() {
     };
   }, []);
 
-  // Poll for status
+  // Poll for status - Every 1 second for consistent responsiveness
   usePolling(async () => {
     try {
       const statusRes = await apiService.getStatus();
@@ -100,9 +100,9 @@ function AppContent() {
     } catch (error) {
       console.error('Polling error:', error);
     }
-  }, 2000, true);
+  }, 1000, true);
 
-  // Poll for current chat - 4 times per second
+  // Poll for current chat - Every 1 second for consistent responsiveness
   usePolling(async () => {
     try {
       const chatRes = await apiService.getCurrentChat();
@@ -118,7 +118,7 @@ function AppContent() {
     } catch (error) {
       console.error('Current chat polling error:', error);
     }
-  }, 250, true);
+  }, 1000, true);
 
   return (
     <div className="app">

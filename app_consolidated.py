@@ -472,6 +472,21 @@ def get_window_info():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route('/api/wechat/ocr-debug-image', methods=['GET'])
+def get_ocr_debug_image():
+    """Serve the debug OCR screenshot for live preview"""
+    try:
+        debug_path = '/tmp/wechat_ocr_debug.png'
+        if os.path.exists(debug_path):
+            return send_from_directory('/tmp', 'wechat_ocr_debug.png', mimetype='image/png')
+        else:
+            # Return a placeholder or 404
+            return jsonify({"success": False, "error": "No debug screenshot available"}), 404
+    except Exception as e:
+        logger.error(f"Error serving debug image: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 # ============================================================================
 # AI API Routes
 # ============================================================================
