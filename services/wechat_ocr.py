@@ -21,7 +21,6 @@ class WeChatOCR:
         self.agent_messages = set()  # Track messages sent by agent
         self.debug_screenshot_path = '/tmp/wechat_ocr_debug.png'  # Debug screenshot path
         self.previous_raw_text = []  # Store previous OCR text lines for comparison
-        self.previous_text_tail = ""  # Store last N words from previous scan
 
     def capture_message_area(self, output_path: str) -> bool:
         """
@@ -259,52 +258,46 @@ class WeChatOCR:
         words = text.split()[:num_words]
         return ' '.join(words)
 
-    def _extract_new_text(self, current_lines: List[str], previous_lines: List[str]) -> str:
+    def _extract_new_text(self, current_lines: List[str], previous_lines: List[str]) -> List[str]:
         """
-        Extract only NEW text that wasn't in the previous scan
-        Uses word-based comparison to handle OCR variations and message reordering
+        Extract only the NEWEST text line (last new message)
 
         Args:
             current_lines: Current OCR text lines
             previous_lines: Previous OCR text lines
 
         Returns:
-            String containing only the new text (empty string if no new text)
+            List containing only the newest text line (or empty if no new text)
         """
-        # Join lines into full text
-        current_text = ' '.join(current_lines).strip()
+        # If no previous scan, return only the LAST line (newest message)
+        if not previous_lines:
+            if current_lines:
+                logger.info(f"First scan: returning last line only (out of {len(current_lines)} total)")
+                return [current_lines[-1]]
+            return []
 
-        # If no current text, return empty
-        if not current_text:
-            return ""
+        # Convert to sets for comparison
+        prev_set = set(previous_lines)
+        new_lines = []
 
-        # Split into words (preserve order)
-        current_words = current_text.split()
+        # Find lines that are in current but not in previous
+        for line in current_lines:
+            if line not in prev_set:
+                new_lines.append(line)
 
-        # If this is the first scan, store all words and return empty
-        # (we need a baseline to compare against)
-        if not self.seen_words:
-            self.seen_words.update(current_words)
-            logger.info(f"First scan - stored {len(self.seen_words)} words as baseline")
-            return ""
+        # If we found new lines, return ONLY THE LAST ONE (newest message)
+        if new_lines:
+            logger.info(f"Found {len(new_lines)} new text lines, returning ONLY the last one: '{new_lines[-1][:50]}...'")
+            return [new_lines[-1]]
 
-        # Find new words that we haven't seen before
-        new_words = []
-        for word in current_words:
-            if word not in self.seen_words:
-                new_words.append(word)
+        # If no new lines found, check if the last line changed (edited message)
+        if len(current_lines) > 0 and len(previous_lines) > 0:
+            if current_lines[-1] != previous_lines[-1]:
+                logger.info("Last line changed, treating as new message")
+                return [current_lines[-1]]
 
-        # Update seen_words with all current words
-        self.seen_words.update(current_words)
-
-        # If we found new words, return them as a message
-        if new_words:
-            new_text = ' '.join(new_words)
-            logger.info(f"✅ New words detected: {new_text[:100]}")
-            return new_text
-
-        logger.debug("No new words detected")
-        return ""
+        logger.debug("No new text detected")
+        return []
 
     def parse_messages(self, text_lines: List[str]) -> List[Dict]:
         """
@@ -433,48 +426,55 @@ class WeChatOCR:
                 # Log raw OCR output for debugging
                 logger.info(f"Raw OCR text ({len(current_text_lines)} lines): {current_text_lines[:10]}")
 
-                # Extract only NEW text by comparing with previous scan
-                new_text = self._extract_new_text(current_text_lines, self.previous_raw_text)
+                # Extract only NEW text lines by comparing with previous scan
+                new_text_lines = self._extract_new_text(current_text_lines, self.previous_raw_text)
 
                 # Update previous raw text for next comparison
                 self.previous_raw_text = current_text_lines.copy()
 
                 # If no new text, return empty list
-                if not new_text:
+                if not new_text_lines:
                     logger.debug("No new text detected in this scan")
                     return []
 
-                # Clean UI elements first
-                cleaned_text = self._filter_ui_elements(new_text)
+                # Parse new text lines into messages
+                # For new text, we treat it as a single message
+                messages = []
 
-                if not cleaned_text:
-                    logger.debug("New text was filtered out as UI element")
-                    return []
+                # Combine new lines into a single message
+                combined_text = ' '.join(new_text_lines).strip()
 
-                # Check if it's an agent message
-                is_agent_msg = False
-                normalized_msg = self._normalize_text(cleaned_text)
-                msg_signature = self._get_message_signature(cleaned_text)
+                if combined_text:
+                    # Clean UI elements first
+                    cleaned_text = self._filter_ui_elements(combined_text)
 
-                for agent_msg in self.agent_messages:
-                    normalized_agent = self._normalize_text(agent_msg)
-                    agent_signature = self._get_message_signature(agent_msg)
+                    if cleaned_text:
+                        # Check if it's an agent message
+                        is_agent_msg = False
+                        normalized_msg = self._normalize_text(cleaned_text)
+                        msg_signature = self._get_message_signature(cleaned_text)
 
-                    if (normalized_msg == normalized_agent or
-                        normalized_agent in normalized_msg or
-                        normalized_msg in normalized_agent or
-                        msg_signature == agent_signature):
-                        is_agent_msg = True
-                        logger.info(f"Filtered agent message: {cleaned_text[:50]}...")
-                        return []
+                        for agent_msg in self.agent_messages:
+                            normalized_agent = self._normalize_text(agent_msg)
+                            agent_signature = self._get_message_signature(agent_msg)
 
-                # Return the new message
-                messages = [{
-                    'timestamp': 'Now',
-                    'text': cleaned_text,
-                    'is_agent': False
-                }]
-                logger.info(f"✅ New message detected: {cleaned_text[:100]}")
+                            if (normalized_msg == normalized_agent or
+                                normalized_agent in normalized_msg or
+                                normalized_msg in normalized_agent or
+                                msg_signature == agent_signature):
+                                is_agent_msg = True
+                                logger.info(f"Filtered agent message: {cleaned_text[:50]}...")
+                                break
+
+                        # Only add if it's not an agent message
+                        if not is_agent_msg:
+                            messages.append({
+                                'timestamp': 'Now',
+                                'text': cleaned_text,
+                                'is_agent': False
+                            })
+                            logger.info(f"✅ New message detected: {cleaned_text[:100]}")
+
                 return messages
 
             finally:
@@ -488,13 +488,6 @@ class WeChatOCR:
     def mark_as_agent_message(self, text: str):
         """Mark a message as sent by the agent (to filter it out)"""
         self.agent_messages.add(text)
-
-    def reset_tracking(self):
-        """Reset message tracking (call when chat changes)"""
-        self.seen_words.clear()
-        self.previous_raw_text = []
-        self.last_messages = []
-        logger.info("OCR tracking reset")
 
     def get_new_messages(self) -> List[Dict]:
         """Get only new messages since last check"""

@@ -1039,6 +1039,7 @@ def chat_with_ai():
         message = data.get('message', '')
         model = data.get('model', 'claude')
         history = data.get('history', [])
+        send_to_wechat = data.get('send_to_wechat', True)  # Default: send to WeChat
 
         if not message:
             return jsonify({'success': False, 'error': 'Message is required'}), 400
@@ -1062,6 +1063,12 @@ def chat_with_ai():
                 base_url=ai_settings.get('base_url', 'https://api.anthropic.com')
             )
 
+            # Build system prompt with [Agent] prefix requirement
+            system_prompt = "IMPORTANT: You MUST start EVERY response with '[Agent]' (including the square brackets). "
+            system_prompt += "You are a friendly AI assistant helping with WeChat conversations. "
+            system_prompt += "Respond naturally and conversationally. Keep responses brief and helpful. "
+            system_prompt += "Always start with '[Agent]'."
+
             # Convert history to Claude format
             messages = []
             for msg in history:
@@ -1077,16 +1084,59 @@ def chat_with_ai():
                 'content': message
             })
 
-            # Call Claude API with configured model
+            # Call Claude API with configured model and system prompt
             model_name = ai_settings.get('model', 'claude-sonnet-4-5-20250929')
             response = client.messages.create(
                 model=model_name,
                 max_tokens=2048,
+                system=system_prompt,
                 messages=messages
             )
 
             response_text = response.content[0].text
+
+            # SAFETY CHECK: Ensure [Agent] prefix is always present
+            if not response_text.strip().startswith('[Agent]'):
+                response_text = f"[Agent] {response_text}"
+                logger.info("Added [Agent] prefix to chat response")
+
             logger.info(f'AI responded to: {message[:50]}...')
+
+            # Send response back to WeChat if enabled
+            if send_to_wechat:
+                try:
+                    # Get current chat name
+                    current_chat = wechat_service.get_current_chat()
+
+                    if current_chat and current_chat != 'No active chat':
+                        # Send message to WeChat
+                        success = wechat_service.send_message(response_text, current_chat)
+
+                        if success:
+                            logger.info(f"✅ Sent AI response to WeChat: {current_chat}")
+
+                            # Mark as agent message so OCR doesn't pick it up
+                            if wechat_service.ocr_reader:
+                                wechat_service.ocr_reader.mark_as_agent_message(response_text)
+                                logger.info("Marked message as agent message for OCR filtering")
+
+                            # Emit log event
+                            socketio.emit('log', {
+                                'type': 'success',
+                                'message': f'🤖 Sent AI response to {current_chat}',
+                                'timestamp': time.time()
+                            })
+                        else:
+                            logger.warning(f"Failed to send AI response to WeChat")
+                            socketio.emit('log', {
+                                'type': 'warning',
+                                'message': f'⚠️ Failed to send AI response to WeChat',
+                                'timestamp': time.time()
+                            })
+                    else:
+                        logger.warning("No active chat to send response to")
+                except Exception as send_error:
+                    logger.error(f"Error sending to WeChat: {send_error}")
 
             return jsonify({
                 'success': True,
