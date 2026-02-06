@@ -1064,11 +1064,21 @@ def chat_with_ai():
             )
 
             # Build system prompt with [Agent] prefix requirement
-            system_prompt = "IMPORTANT: You MUST start EVERY response with '[Agent]' (including the square brackets). "
-            system_prompt += "You are a friendly AI assistant helping with WeChat conversations. "
-            system_prompt += "Keep responses CONCISE and casual, suitable for text messaging. "
-            system_prompt += "Use 1-2 sentences for simple questions. Only provide detailed explanations when specifically asked. "
-            system_prompt += "Always start with '[Agent]'."
+            system_prompt = "You are a WeChat messaging assistant. Follow these MANDATORY rules:\n\n"
+            system_prompt += "1. ALWAYS start with '[Agent]' prefix (including brackets)\n"
+            system_prompt += "2. MAXIMUM response length: 10 words (shorter is better)\n"
+            system_prompt += "3. FORBIDDEN: Line breaks, newlines, multiple sentences\n"
+            system_prompt += "4. REQUIRED: Single sentence only, no \\n characters\n\n"
+            system_prompt += "Response examples:\n"
+            system_prompt += "- '[Agent] Sure!'\n"
+            system_prompt += "- '[Agent] Got it'\n"
+            system_prompt += "- '[Agent] That sounds great'\n"
+            system_prompt += "- '[Agent] I can help with that'\n"
+            system_prompt += "- '[Agent] Interesting question'\n\n"
+            system_prompt += "For greetings: '[Agent] Hey!' or '[Agent] Hi there!'\n"
+            system_prompt += "For questions: '[Agent] What do you need?' or '[Agent] Tell me more'\n"
+            system_prompt += "For confirmations: '[Agent] Done!' or '[Agent] All set!'\n\n"
+            system_prompt += "VIOLATION of these rules will cause system errors. Keep it SHORT and CASUAL like text messaging."
 
             # Convert history to Claude format
             messages = []
@@ -1081,7 +1091,7 @@ def chat_with_ai():
                 })
                 messages.append({
                     'role': 'assistant',
-                    'content': '[Agent] Understood. I will always start my responses with [Agent].'
+                    'content': '[Agent] Got it, keeping it short!'
                 })
 
             for msg in history:
@@ -1103,7 +1113,7 @@ def chat_with_ai():
             try:
                 response = client.messages.create(
                     model=model_name,
-                    max_tokens=2048,
+                    max_tokens=50,  # Limit to 50 tokens to enforce brevity
                     system=system_prompt,
                     messages=messages
                 )
@@ -1112,7 +1122,7 @@ def chat_with_ai():
                 logger.warning(f"System parameter not supported, retrying without it: {system_error}")
                 response = client.messages.create(
                     model=model_name,
-                    max_tokens=2048,
+                    max_tokens=50,  # Limit to 50 tokens to enforce brevity
                     messages=messages
                 )
 
@@ -1445,6 +1455,8 @@ def emit_current_chat_updates():
     iteration_count = 0
     last_messages = []  # Track last messages for deduplication
     last_ocr_check = 0  # Rate limit OCR checks
+    initial_context_loaded = False  # Track if initial context scan has been done
+    previous_auto_detect_state = False  # Track previous auto-detect state
 
     logger.info("🚀 High-frequency chat detection started (10 Hz / 100ms)")
 
@@ -1466,10 +1478,41 @@ def emit_current_chat_updates():
                 # Run OCR every 1 second to detect text changes
                 auto_detect_enabled = wechat_config.get('auto_detect_messages', False)
 
+                # Reset initial context flag if auto-detect was toggled off and back on
+                if auto_detect_enabled and not previous_auto_detect_state:
+                    logger.info("🔄 [AUTO-DETECT] Auto-detect re-enabled, will reload initial context")
+                    initial_context_loaded = False
+                previous_auto_detect_state = auto_detect_enabled
+
                 if iteration_count % 10 == 0:  # Log every second
                     logger.info(f"[AUTO-DETECT] Enabled: {auto_detect_enabled}")
 
                 if auto_detect_enabled:
+                    # Load initial context on first run to avoid processing old messages
+                    if not initial_context_loaded:
+                        logger.info("🔍 [INITIAL SCAN] Loading initial context to mark existing messages...")
+                        try:
+                            if wechat_service.ocr_reader:
+                                success = wechat_service.ocr_reader.load_initial_context()
+                                if success:
+                                    logger.info("✅ [INITIAL SCAN] Initial context loaded successfully")
+                                    socketio.emit('log', {
+                                        'type': 'success',
+                                        'message': '✅ Initial context loaded - ready to detect new messages',
+                                        'timestamp': time.time()
+                                    })
+                                else:
+                                    logger.warning("⚠️ [INITIAL SCAN] Failed to load initial context")
+                                    socketio.emit('log', {
+                                        'type': 'warning',
+                                        'message': '⚠️ Failed to load initial context',
+                                        'timestamp': time.time()
+                                    })
+                            initial_context_loaded = True
+                        except Exception as e:
+                            logger.error(f"❌ [INITIAL SCAN] Error loading initial context: {e}")
+                            initial_context_loaded = True  # Set to True anyway to avoid infinite retries
+
                     current_time = time.time()
                     # Run OCR every 1 second
                     if current_time - last_ocr_check >= 1.0:
@@ -1522,6 +1565,11 @@ def emit_current_chat_updates():
 
                                     if last_text:
                                         logger.info(f"📤 Sending last message to chatbox: {last_text[:50]}...")
+
+                                        # Mark as user message to avoid echo
+                                        if wechat_service.ocr_reader:
+                                            wechat_service.ocr_reader.mark_as_user_message(last_text)
+
                                         socketio.emit('wechat_message', {
                                             'timestamp': last_timestamp,
                                             'text': last_text,

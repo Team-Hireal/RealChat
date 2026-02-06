@@ -21,6 +21,8 @@ class WeChatOCR:
         self.agent_messages = set()  # Track messages sent by agent
         self.debug_screenshot_path = '/tmp/wechat_ocr_debug.png'  # Debug screenshot path
         self.previous_raw_text = []  # Store previous OCR text lines for comparison
+        self.detected_messages = set()  # Track all previously detected messages
+        self.user_messages = set()  # Track user messages that agent is responding to
 
     def capture_message_area(self, output_path: str) -> bool:
         """
@@ -249,6 +251,45 @@ class WeChatOCR:
             cleaned = cleaned.replace(element, '')
         return ' '.join(cleaned.split()).strip()
 
+    def _is_valid_message(self, text: str) -> bool:
+        """Check if text is a valid message (not timestamp, UI element, etc.)"""
+        import re
+
+        # Filter out empty or very short text
+        if not text or len(text.strip()) < 3:
+            return False
+
+        # Filter out [Agent] messages (additional safety check)
+        if text.strip().startswith('[Agent]'):
+            return False
+
+        # Filter out timestamps (e.g., "21:30", "01/26", "12:05")
+        timestamp_patterns = [
+            r'^\d{1,2}:\d{2}$',  # 21:30
+            r'^\d{1,2}/\d{1,2}$',  # 01/26
+            r'^\d{1,2}/\d{1,2}/\d{2,4}$',  # 01/26/2026
+            r'^/\d{1,2}/\d{1,2}$',  # /12/05
+            r'^\d{4}-\d{2}-\d{2}$',  # 2026-01-26
+        ]
+
+        for pattern in timestamp_patterns:
+            if re.match(pattern, text.strip()):
+                return False
+
+        # Filter out common UI text patterns
+        ui_patterns = [
+            r'^\.{3,}$',  # ...
+            r'^[:\s\.]+$',  # : ... etc
+            r'^elp\s*\.\.\.$',  # elp ...
+            r'^i:\s*\.\.\.$',  # i: ...
+        ]
+
+        for pattern in ui_patterns:
+            if re.match(pattern, text.strip(), re.IGNORECASE):
+                return False
+
+        return True
+
     def _normalize_text(self, text: str) -> str:
         """Normalize text for comparison"""
         return ' '.join(text.lower().split())
@@ -445,18 +486,33 @@ class WeChatOCR:
                 combined_text = ' '.join(new_text_lines).strip()
 
                 if combined_text:
-                    # Clean UI elements first
+                    # Validate message first
+                    if not self._is_valid_message(combined_text):
+                        logger.debug(f"Filtered invalid message: {combined_text[:50]}...")
+                        return []
+
+                    # Clean UI elements
                     cleaned_text = self._filter_ui_elements(combined_text)
 
-                    if cleaned_text:
+                    if cleaned_text and self._is_valid_message(cleaned_text):
                         # Filter out [Agent] messages (messages from the AI itself)
                         if cleaned_text.strip().startswith('[Agent]'):
                             logger.info(f"Filtered [Agent] message: {cleaned_text[:50]}...")
                             return []
 
+                        # Check if message was already detected
+                        normalized_msg = self._normalize_text(cleaned_text)
+                        if normalized_msg in self.detected_messages:
+                            logger.debug(f"Filtered previously detected message: {cleaned_text[:50]}...")
+                            return []
+
+                        # Check if it matches a user message (to avoid echo)
+                        if normalized_msg in self.user_messages:
+                            logger.debug(f"Filtered user message echo: {cleaned_text[:50]}...")
+                            return []
+
                         # Check if it's an agent message (additional check)
                         is_agent_msg = False
-                        normalized_msg = self._normalize_text(cleaned_text)
                         msg_signature = self._get_message_signature(cleaned_text)
 
                         for agent_msg in self.agent_messages:
@@ -473,6 +529,15 @@ class WeChatOCR:
 
                         # Only add if it's not an agent message
                         if not is_agent_msg:
+                            # Add to detected messages history
+                            self.detected_messages.add(normalized_msg)
+
+                            # Keep history size manageable (last 100 messages)
+                            if len(self.detected_messages) > 100:
+                                # Remove oldest entries (convert to list, remove first half, convert back)
+                                msgs_list = list(self.detected_messages)
+                                self.detected_messages = set(msgs_list[50:])
+
                             messages.append({
                                 'timestamp': 'Now',
                                 'text': cleaned_text,
@@ -493,6 +558,62 @@ class WeChatOCR:
     def mark_as_agent_message(self, text: str):
         """Mark a message as sent by the agent (to filter it out)"""
         self.agent_messages.add(text)
+
+    def mark_as_user_message(self, text: str):
+        """Mark a user message that agent is responding to (to avoid echo)"""
+        normalized = self._normalize_text(text)
+        self.user_messages.add(normalized)
+
+    def load_initial_context(self) -> bool:
+        """
+        Load initial context by scanning current messages and marking them as detected.
+        This prevents old messages from being processed as "new" when detection starts.
+
+        Returns:
+            bool: Success status
+        """
+        try:
+            logger.info("Loading initial context from WeChat...")
+
+            # Capture and extract current text
+            with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as f:
+                screenshot_path = f.name
+
+            try:
+                if not self.capture_message_area(screenshot_path):
+                    logger.warning("Failed to capture initial context")
+                    return False
+
+                # Extract text using Vision OCR
+                current_text_lines = self.extract_text_vision(screenshot_path)
+
+                if current_text_lines:
+                    logger.info(f"Initial context: {len(current_text_lines)} text elements found")
+
+                    # Store as previous scan
+                    self.previous_raw_text = current_text_lines.copy()
+
+                    # Mark all current text as detected to avoid processing old messages
+                    for line in current_text_lines:
+                        if self._is_valid_message(line):
+                            cleaned = self._filter_ui_elements(line)
+                            if cleaned and self._is_valid_message(cleaned):
+                                normalized = self._normalize_text(cleaned)
+                                self.detected_messages.add(normalized)
+
+                    logger.info(f"✅ Initial context loaded: {len(self.detected_messages)} messages marked as seen")
+                    return True
+                else:
+                    logger.warning("No text found in initial context")
+                    return False
+
+            finally:
+                # Clean up screenshot
+                Path(screenshot_path).unlink(missing_ok=True)
+
+        except Exception as e:
+            logger.error(f"Error loading initial context: {e}")
+            return False
 
     def get_new_messages(self) -> List[Dict]:
         """Get only new messages since last check"""
