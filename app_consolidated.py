@@ -1133,18 +1133,18 @@ def chat_with_ai():
             )
 
             # Build system prompt with [Agent] prefix requirement
-            system_prompt = "You are a WeChat messaging assistant. Communication style:\n\n"
-            system_prompt += "1. Always start responses with '[Agent]'\n"
-            system_prompt += "2. Write like you're texting - casual, conversational, natural\n"
-            system_prompt += "3. CRITICAL: Keep responses under 50 words - be extremely concise\n"
-            system_prompt += "4. MATCH THE USER'S TONE - if they're casual, be casual; if formal, be formal; if excited, be excited\n"
-            system_prompt += "5. NEVER use line breaks or multiple paragraphs - everything on one line\n"
-            system_prompt += "6. For simple questions, use 1-5 words. For complex topics, use 1-2 short sentences max\n\n"
+            system_prompt = "You are a WeChat messaging assistant.\n\n"
+            system_prompt += "CRITICAL RULES:\n"
+            system_prompt += "1. Always start with '[Agent]'\n"
+            system_prompt += "2. MATCH USER'S MESSAGE LENGTH - if they send 2 words, you send 2-3 words. If they send 10 words, you send 10-12 words.\n"
+            system_prompt += "3. ONE LINE ONLY - no line breaks, no lists, no paragraphs\n"
+            system_prompt += "4. Be casual and conversational like texting\n\n"
             system_prompt += "Examples:\n"
-            system_prompt += "Simple: '[Agent] Sure!' or '[Agent] Got it'\n"
-            system_prompt += "Moderate: '[Agent] That sounds interesting, tell me more'\n"
-            system_prompt += "Complex: '[Agent] I can help with that - send me the details'\n\n"
-            system_prompt += "Key rules: NO line breaks, under 50 words, match user's tone, keep it conversational like instant messaging."
+            system_prompt += "User: 'hey' → '[Agent] Hey!'\n"
+            system_prompt += "User: 'Test, hi' → '[Agent] Hi there!'\n"
+            system_prompt += "User: 'what's up?' → '[Agent] Not much, you?'\n"
+            system_prompt += "User: 'how are you doing today?' → '[Agent] Good thanks, how about you?'\n\n"
+            system_prompt += "Keep responses SHORT. Match their length exactly."
 
             # Convert history to Claude format
             messages = []
@@ -1157,7 +1157,7 @@ def chat_with_ai():
                 })
                 messages.append({
                     'role': 'assistant',
-                    'content': '[Agent] Got it, I\'ll keep responses conversational and on one line'
+                    'content': '[Agent] Got it - short responses only, match their length'
                 })
 
             for msg in history:
@@ -1167,10 +1167,23 @@ def chat_with_ai():
                         'content': msg['content']
                     })
 
-            # Add current message
+            # Add current message with explicit word count instruction
+            user_word_count = len(message.split())
+
+            # Determine target response length based on user's word count
+            if user_word_count <= 5:
+                target_words = "1-5 words"
+            elif user_word_count <= 15:
+                target_words = "6-15 words"
+            else:
+                target_words = "15-25 words"
+
+            # Add explicit instruction to the message
+            message_with_instruction = f"{message}\n\n[INSTRUCTION: User sent {user_word_count} words. Respond with {target_words} ONLY. Keep it SHORT.]"
+
             messages.append({
                 'role': 'user',
-                'content': message
+                'content': message_with_instruction
             })
 
             # Call Claude API with configured model
@@ -1179,7 +1192,8 @@ def chat_with_ai():
             try:
                 response = client.messages.create(
                     model=model_name,
-                    max_tokens=70,  # ~50 words max for concise responses
+                    max_tokens=40,  # ~30 words max - very strict limit
+                    temperature=0.7,  # Slightly lower for more predictable responses
                     system=system_prompt,
                     messages=messages
                 )
@@ -1188,7 +1202,8 @@ def chat_with_ai():
                 logger.warning(f"System parameter not supported, retrying without it: {system_error}")
                 response = client.messages.create(
                     model=model_name,
-                    max_tokens=70,  # ~50 words max for concise responses
+                    max_tokens=40,  # ~30 words max - very strict limit
+                    temperature=0.7,  # Slightly lower for more predictable responses
                     messages=messages
                 )
 
