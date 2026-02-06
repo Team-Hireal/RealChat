@@ -1066,7 +1066,8 @@ def chat_with_ai():
             # Build system prompt with [Agent] prefix requirement
             system_prompt = "IMPORTANT: You MUST start EVERY response with '[Agent]' (including the square brackets). "
             system_prompt += "You are a friendly AI assistant helping with WeChat conversations. "
-            system_prompt += "Respond naturally and conversationally. Keep responses brief and helpful. "
+            system_prompt += "Keep responses CONCISE and casual, suitable for text messaging. "
+            system_prompt += "Use 1-2 sentences for simple questions. Only provide detailed explanations when specifically asked. "
             system_prompt += "Always start with '[Agent]'."
 
             # Convert history to Claude format
@@ -1126,11 +1127,19 @@ def chat_with_ai():
 
             # Send response back to WeChat if enabled
             if send_to_wechat:
+                logger.info("Attempting to send AI response back to WeChat...")
                 try:
                     # Get current chat name
                     current_chat = wechat_service.get_current_chat()
+                    logger.info(f"Current chat detected: {current_chat}")
 
-                    if current_chat and current_chat != 'No active chat':
+                    # Filter out UI elements and invalid chats
+                    invalid_chats = ['No active chat', 'File Transfer', 'Search', 'Photos and Videos',
+                                    'Favorites', 'Official Accounts', 'Settings', 'Profile', 'Log Out',
+                                    'Help', 'Moments']
+
+                    if current_chat and current_chat not in invalid_chats:
+                        logger.info(f"Valid chat detected, sending message to: {current_chat}")
                         # Send message to WeChat
                         success = wechat_service.send_message(response_text, current_chat)
 
@@ -1156,9 +1165,16 @@ def chat_with_ai():
                                 'timestamp': time.time()
                             })
                     else:
-                        logger.warning("No active chat to send response to")
+                        logger.warning(f"No valid chat to send response to. Current chat: {current_chat}")
+                        socketio.emit('log', {
+                            'type': 'warning',
+                            'message': f'⚠️ Cannot send to "{current_chat}" - please open a real chat',
+                            'timestamp': time.time()
+                        })
                 except Exception as send_error:
                     logger.error(f"Error sending to WeChat: {send_error}")
+                    import traceback
+                    logger.error(traceback.format_exc())
 
             return jsonify({
                 'success': True,
@@ -1458,6 +1474,15 @@ def emit_current_chat_updates():
                     # Run OCR every 1 second
                     if current_time - last_ocr_check >= 1.0:
                         last_ocr_check = current_time
+
+                        # Check if cursor is in WeChat window before running OCR
+                        cursor_in_wechat = wechat_service.is_cursor_in_wechat_window()
+
+                        if not cursor_in_wechat:
+                            if iteration_count % 10 == 0:  # Log every 10 seconds
+                                logger.debug("[AUTO-DETECT] Skipping OCR - cursor not in WeChat window")
+                            time.sleep(0.1)
+                            continue
 
                         try:
                             logger.info("[AUTO-DETECT] Running OCR scan...")
