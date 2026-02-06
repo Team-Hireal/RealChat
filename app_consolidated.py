@@ -1071,6 +1071,18 @@ def chat_with_ai():
 
             # Convert history to Claude format
             messages = []
+
+            # Add system prompt as first user message if no history
+            if not history or len(history) == 0:
+                messages.append({
+                    'role': 'user',
+                    'content': system_prompt
+                })
+                messages.append({
+                    'role': 'assistant',
+                    'content': '[Agent] Understood. I will always start my responses with [Agent].'
+                })
+
             for msg in history:
                 if msg.get('role') in ['user', 'assistant']:
                     messages.append({
@@ -1084,14 +1096,24 @@ def chat_with_ai():
                 'content': message
             })
 
-            # Call Claude API with configured model and system prompt
+            # Call Claude API with configured model
+            # Try with system parameter first (official API), fallback to messages only (custom API)
             model_name = ai_settings.get('model', 'claude-sonnet-4-5-20250929')
-            response = client.messages.create(
-                model=model_name,
-                max_tokens=2048,
-                system=system_prompt,
-                messages=messages
-            )
+            try:
+                response = client.messages.create(
+                    model=model_name,
+                    max_tokens=2048,
+                    system=system_prompt,
+                    messages=messages
+                )
+            except Exception as system_error:
+                # If system parameter fails, try without it (for custom APIs)
+                logger.warning(f"System parameter not supported, retrying without it: {system_error}")
+                response = client.messages.create(
+                    model=model_name,
+                    max_tokens=2048,
+                    messages=messages
+                )
 
             response_text = response.content[0].text
 
