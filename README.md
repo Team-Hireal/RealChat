@@ -25,16 +25,36 @@ This will automatically:
 
 ### **Option 2: Manual Start**
 
+**IMPORTANT**: You must activate the virtual environment before starting the backend!
+
 ```bash
-# 1. Install dependencies
+# 1. Navigate to project directory
+cd /Users/test/Desktop/Hireal/RealChat
+
+# 2. Activate virtual environment (REQUIRED)
+source venv/bin/activate
+# You should see (venv) appear in your terminal prompt
+
+# 3. Install dependencies (first time only)
 pip install -r requirements_consolidated.txt
 
-# 2. Configure environment (first time only)
+# 4. Configure environment (first time only)
 cp .env.example .env
 nano .env  # Add your Anthropic API key
 
-# 3. Start the application
-python3 app_consolidated.py
+# 5. Start the Flask backend
+python app_consolidated.py
+```
+
+**What you'll see when it starts successfully:**
+- `Port: 5001` - Backend is running on port 5001
+- `WeChat: Running` - WeChat desktop is detected
+- `AI Model: claude-sonnet-4-5-20250929` - AI service is configured
+- `High-frequency chat detection started` - Message monitoring is active
+
+**One-line command to start:**
+```bash
+cd /Users/test/Desktop/Hireal/RealChat && source venv/bin/activate && python app_consolidated.py
 ```
 
 ### **Option 3: Docker**

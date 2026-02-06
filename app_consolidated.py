@@ -1067,14 +1067,14 @@ def chat_with_ai():
             system_prompt = "You are a WeChat messaging assistant. Communication style:\n\n"
             system_prompt += "1. Always start responses with '[Agent]'\n"
             system_prompt += "2. Write like you're texting - casual, conversational, natural\n"
-            system_prompt += "3. Keep responses concise but complete - say what's needed, nothing more\n"
+            system_prompt += "3. CRITICAL: Keep responses under 50 words - be extremely concise\n"
             system_prompt += "4. NEVER use line breaks or multiple paragraphs - everything on one line\n"
-            system_prompt += "5. Use 1-2 sentences for simple questions, more if needed for complex topics\n\n"
+            system_prompt += "5. For simple questions, use 1-5 words. For complex topics, use 1-2 short sentences max\n\n"
             system_prompt += "Examples:\n"
             system_prompt += "Simple: '[Agent] Sure!' or '[Agent] Got it'\n"
-            system_prompt += "Moderate: '[Agent] That sounds interesting, tell me more about it'\n"
-            system_prompt += "Complex: '[Agent] I can help with that - just send me the details and I'll take a look'\n\n"
-            system_prompt += "Key rule: NO line breaks, keep it conversational like instant messaging."
+            system_prompt += "Moderate: '[Agent] That sounds interesting, tell me more'\n"
+            system_prompt += "Complex: '[Agent] I can help with that - send me the details'\n\n"
+            system_prompt += "Key rule: NO line breaks, under 50 words, keep it conversational like instant messaging."
 
             # Convert history to Claude format
             messages = []
@@ -1109,7 +1109,7 @@ def chat_with_ai():
             try:
                 response = client.messages.create(
                     model=model_name,
-                    max_tokens=200,  # Allow flexibility for conversational responses
+                    max_tokens=70,  # ~50 words max for concise responses
                     system=system_prompt,
                     messages=messages
                 )
@@ -1118,7 +1118,7 @@ def chat_with_ai():
                 logger.warning(f"System parameter not supported, retrying without it: {system_error}")
                 response = client.messages.create(
                     model=model_name,
-                    max_tokens=200,  # Allow flexibility for conversational responses
+                    max_tokens=70,  # ~50 words max for concise responses
                     messages=messages
                 )
 

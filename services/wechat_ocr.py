@@ -20,6 +20,7 @@ class WeChatOCR:
         self.last_messages = []
         self.agent_messages = set()  # Track messages sent by agent
         self.recent_agent_responses = []  # Track last 10 agent responses for comparison
+        self.last_agent_response_tail = ""  # Track last 3 words of most recent agent response
         self.debug_screenshot_path = '/tmp/wechat_ocr_debug.png'  # Debug screenshot path
         self.previous_raw_text = []  # Store previous OCR text lines for comparison
         self.detected_messages = set()  # Track all previously detected messages
@@ -265,17 +266,28 @@ class WeChatOCR:
             return False
 
         # Filter out timestamps (e.g., "21:30", "01/26", "12:05")
+        # Check both standalone timestamps and timestamps within text
         timestamp_patterns = [
-            r'^\d{1,2}:\d{2}$',  # 21:30
-            r'^\d{1,2}/\d{1,2}$',  # 01/26
-            r'^\d{1,2}/\d{1,2}/\d{2,4}$',  # 01/26/2026
-            r'^/\d{1,2}/\d{1,2}$',  # /12/05
-            r'^\d{4}-\d{2}-\d{2}$',  # 2026-01-26
+            r'\b\d{1,2}:\d{2}\b',  # 21:30, 12:05
+            r'\b\d{1,2}/\d{1,2}\b',  # 01/26, 12/05
+            r'\b\d{1,2}/\d{1,2}/\d{2,4}\b',  # 01/26/2026
+            r'\b/\d{1,2}/\d{1,2}\b',  # /12/05
+            r'\b\d{4}-\d{2}-\d{2}\b',  # 2026-01-26
+            r'\b\d{1,2}:\d{2}\s*[AP]M\b',  # 11:30 PM, 3:45 AM
         ]
 
+        # If text is ONLY a timestamp, filter it out
         for pattern in timestamp_patterns:
-            if re.match(pattern, text.strip()):
+            if re.match(f'^{pattern}$', text.strip()):
                 return False
+
+        # If text contains ONLY timestamps and whitespace, filter it out
+        text_without_timestamps = text
+        for pattern in timestamp_patterns:
+            text_without_timestamps = re.sub(pattern, '', text_without_timestamps)
+
+        if not text_without_timestamps.strip():
+            return False
 
         # Filter out common UI text patterns
         ui_patterns = [
@@ -306,6 +318,14 @@ class WeChatOCR:
         clean_text = text.replace('[Agent]', '').replace('[agent]', '').strip()
         normalized_text = self._normalize_text(clean_text)
 
+        # Check if message starts with last 3 words of previous agent response
+        # This catches cases where OCR picks up the tail of the agent's message
+        if self.last_agent_response_tail:
+            normalized_tail = self._normalize_text(self.last_agent_response_tail)
+            if normalized_text.startswith(normalized_tail):
+                logger.info(f"Text starts with agent response tail: '{text[:50]}...' starts with '{self.last_agent_response_tail}'")
+                return True
+
         # Check against recent agent responses
         for agent_response in self.recent_agent_responses:
             normalized_agent = self._normalize_text(agent_response)
@@ -327,6 +347,7 @@ class WeChatOCR:
     def _extract_new_text(self, current_lines: List[str], previous_lines: List[str]) -> List[str]:
         """
         Extract ALL new text lines (complete new message)
+        Uses the last 3 words of the previous agent message to find the boundary
 
         Args:
             current_lines: Current OCR text lines
@@ -342,7 +363,62 @@ class WeChatOCR:
                 return current_lines
             return []
 
-        # Convert to sets for comparison
+        # Combine current lines into a single text string
+        current_text = ' '.join(current_lines)
+
+        # If we have the last 3 words from the previous agent message, use them as a boundary
+        if self.last_agent_response_tail:
+            # Normalize both texts for comparison
+            normalized_current = self._normalize_text(current_text)
+            normalized_tail = self._normalize_text(self.last_agent_response_tail)
+
+            logger.debug(f"Looking for agent tail in OCR text...")
+            logger.debug(f"  Agent tail: '{self.last_agent_response_tail}'")
+            logger.debug(f"  Normalized tail: '{normalized_tail}'")
+            logger.debug(f"  Current text (first 200 chars): '{current_text[:200]}'")
+
+            # Try to find the tail in the current text
+            # Use fuzzy matching by checking each word of the tail
+            tail_words = normalized_tail.split()
+            current_words = normalized_current.split()
+
+            # Look for a sequence of words that matches most of the tail words
+            best_match_index = -1
+            best_match_score = 0
+
+            for i in range(len(current_words) - len(tail_words) + 1):
+                # Check how many words match
+                matches = 0
+                for j, tail_word in enumerate(tail_words):
+                    if i + j < len(current_words):
+                        # Fuzzy match: check if words are similar (handle OCR errors)
+                        current_word = current_words[i + j]
+                        if tail_word == current_word or tail_word in current_word or current_word in tail_word:
+                            matches += 1
+
+                # Calculate match score
+                score = matches / len(tail_words)
+                if score > best_match_score:
+                    best_match_score = score
+                    best_match_index = i + len(tail_words)
+
+            # If we found a good match (>60% of words match), extract text after it
+            if best_match_score > 0.6 and best_match_index != -1:
+                # Extract words after the boundary
+                new_words = current_words[best_match_index:]
+                new_text = ' '.join(new_words).strip()
+
+                if new_text:
+                    logger.info(f"✅ Found text after agent tail (match score: {best_match_score:.2f})")
+                    logger.info(f"  → Extracted: '{new_text[:100]}...'")
+                    return [new_text]
+                else:
+                    logger.debug("No new text after agent tail")
+                    return []
+            else:
+                logger.debug(f"Agent tail not found or match score too low ({best_match_score:.2f})")
+
+        # Fallback: use the old line-by-line comparison
         prev_set = set(previous_lines)
         new_lines = []
 
@@ -353,7 +429,7 @@ class WeChatOCR:
 
         # Return ALL new lines (complete message)
         if new_lines:
-            logger.info(f"Found {len(new_lines)} new text lines, returning all of them")
+            logger.info(f"Found {len(new_lines)} new text lines (fallback method), returning all of them")
             return new_lines
 
         # If no new lines found, check if the last line changed (edited message)
@@ -592,14 +668,31 @@ class WeChatOCR:
 
         # Also add to recent responses list for robust comparison
         # Remove [Agent] prefix for comparison
-        clean_text = text.replace('[Agent]', '').strip()
+        clean_text = text.replace('[Agent]', '').replace('[agent]', '').strip()
         self.recent_agent_responses.append(clean_text)
+
+        # Extract last 3 words/tokens for tail matching
+        # For English: split by spaces
+        # For Chinese/mixed: use last N characters if word count is low
+        words = clean_text.split()
+
+        if len(words) >= 3:
+            # Use last 3 words
+            self.last_agent_response_tail = ' '.join(words[-3:])
+        elif len(words) > 0:
+            # Use all available words
+            self.last_agent_response_tail = clean_text
+        else:
+            # Fallback: use last 20 characters for Chinese or mixed text
+            self.last_agent_response_tail = clean_text[-20:] if len(clean_text) > 20 else clean_text
 
         # Keep only last 10 responses
         if len(self.recent_agent_responses) > 10:
             self.recent_agent_responses = self.recent_agent_responses[-10:]
 
-        logger.info(f"Marked as agent message: {text[:50]}... (tracking {len(self.recent_agent_responses)} recent responses)")
+        logger.info(f"Marked as agent message: {text[:50]}...")
+        logger.info(f"  → Tail for boundary detection: '{self.last_agent_response_tail}'")
+        logger.info(f"  → Tracking {len(self.recent_agent_responses)} recent responses")
 
     def mark_as_user_message(self, text: str):
         """Mark a user message that agent is responding to (to avoid echo)"""
