@@ -501,8 +501,12 @@ class WeChatService:
         with open(temp_file, 'w', encoding='utf-8') as f:
             f.write(text)
 
+        # Use clipboard method to preserve emojis and special characters
         script = f'''
         set msg to do shell script "cat {temp_file}"
+
+        -- Copy message to clipboard
+        set the clipboard to msg
 
         tell application "WeChat"
             activate
@@ -511,8 +515,8 @@ class WeChatService:
 
         tell application "System Events"
             tell process "WeChat"
-                -- Type message directly (chat should already be open)
-                keystroke msg
+                -- Paste message from clipboard (preserves emojis)
+                keystroke "v" using {{command down}}
                 delay 0.15
 
                 -- Send message (Enter)
