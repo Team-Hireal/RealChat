@@ -8,6 +8,7 @@ import {
   createZypherContext,
   ZypherAgent,
 } from "@zypher/agent";
+import { eachValueFrom } from "rxjs-for-await";
 
 // Helper function to load AI settings from parent directory
 async function loadAISettings() {
@@ -99,9 +100,9 @@ async function startHttpServer(agent: ZypherAgent, defaultModel: string) {
 
         const event$ = agent.runTask(fullPrompt, modelName);
 
-        // Collect the response
+        // Collect the response - convert Observable to async iterable
         let response = "";
-        for await (const event of event$) {
+        for await (const event of eachValueFrom(event$)) {
           if (event.type === "text") {
             response += event.text;
           }
