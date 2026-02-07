@@ -71,6 +71,7 @@ wechat_service = WeChatService(wechat_config)
 # Message deduplication cache: {message_hash: timestamp}
 # Prevents sending the same message multiple times within a short window
 sent_messages_cache = {}
+send_message_lock = threading.Lock()  # Thread lock to prevent race conditions
 DEDUP_WINDOW_SECONDS = 3  # Prevent duplicates within 3 seconds
 
 ai_config = {
@@ -250,68 +251,77 @@ def search_chats():
 
 @app.route('/api/wechat/send', methods=['POST'])
 def send_message():
-    """Send message to WeChat with deduplication"""
-    global selected_chat, sent_messages_cache
-    try:
-        data = request.json
-        message = data.get('message')
-        chat_name = data.get('chat_name')
+    """Send message to WeChat with deduplication and thread safety"""
+    global selected_chat, sent_messages_cache, send_message_lock
 
-        if not message:
-            return jsonify({"success": False, "error": "Message is required"}), 400
+    # Use thread lock to prevent race conditions
+    with send_message_lock:
+        try:
+            data = request.json
+            message = data.get('message')
+            chat_name = data.get('chat_name')
 
-        # Create a unique hash for this message
-        message_hash = f"{chat_name}:{message}"
-        current_time = time.time()
+            logger.info(f"📥 SEND REQUEST: Chat={chat_name}, Msg={message[:50]}...")
 
-        # Check if this exact message was sent recently
-        if message_hash in sent_messages_cache:
-            last_sent_time = sent_messages_cache[message_hash]
-            time_since_last_send = current_time - last_sent_time
+            if not message:
+                return jsonify({"success": False, "error": "Message is required"}), 400
 
-            if time_since_last_send < DEDUP_WINDOW_SECONDS:
-                logger.warning(f"⚠️ Duplicate message blocked (sent {time_since_last_send:.2f}s ago): {message[:50]}...")
-                return jsonify({
-                    "success": True,
-                    "message": "Duplicate message blocked (already sent)",
-                    "deduplicated": True
+            # Create a unique hash for this message
+            message_hash = f"{chat_name}:{message}"
+            current_time = time.time()
+
+            logger.info(f"🔍 Cache check: {len(sent_messages_cache)} entries")
+
+            # Check if this exact message was sent recently
+            if message_hash in sent_messages_cache:
+                last_sent_time = sent_messages_cache[message_hash]
+                time_since_last_send = current_time - last_sent_time
+
+                if time_since_last_send < DEDUP_WINDOW_SECONDS:
+                    logger.warning(f"⚠️ DUPLICATE BLOCKED (sent {time_since_last_send:.2f}s ago)")
+                    return jsonify({
+                        "success": True,
+                        "message": "Duplicate message blocked (already sent)",
+                        "deduplicated": True
+                    })
+
+            # Clean up old entries from cache (older than dedup window)
+            sent_messages_cache = {
+                k: v for k, v in sent_messages_cache.items()
+                if current_time - v < DEDUP_WINDOW_SECONDS
+            }
+
+            # Update selected chat
+            if chat_name:
+                selected_chat = chat_name
+
+            # Send the message
+            logger.info(f"📤 SENDING to WeChat...")
+            success = wechat_service.send_message(message, chat_name)
+
+            if success:
+                # Cache this message to prevent duplicates
+                sent_messages_cache[message_hash] = current_time
+                logger.info(f"✅ SENT AND CACHED")
+
+            # Emit chat change event
+            if success and chat_name:
+                socketio.emit('current_chat_update', {
+                    'chat': chat_name,
+                    'detected': False,
+                    'selected': chat_name,
+                    'timestamp': time.time()
                 })
 
-        # Clean up old entries from cache (older than dedup window)
-        sent_messages_cache = {
-            k: v for k, v in sent_messages_cache.items()
-            if current_time - v < DEDUP_WINDOW_SECONDS
-        }
-
-        # Update selected chat
-        if chat_name:
-            selected_chat = chat_name
-
-        # Send the message
-        logger.info(f"📤 Sending message to {chat_name}: {message[:50]}...")
-        success = wechat_service.send_message(message, chat_name)
-
-        if success:
-            # Cache this message to prevent duplicates
-            sent_messages_cache[message_hash] = current_time
-            logger.info(f"✅ Message sent and cached: {message[:50]}...")
-
-        # Emit chat change event
-        if success and chat_name:
-            socketio.emit('current_chat_update', {
-                'chat': chat_name,
-                'detected': False,
-                'selected': chat_name,
-                'timestamp': time.time()
+            return jsonify({
+                "success": success,
+                "message": "Message sent" if success else "Failed to send message"
             })
-
-        return jsonify({
-            "success": success,
-            "message": "Message sent" if success else "Failed to send message"
-        })
-    except Exception as e:
-        logger.error(f"Error sending message: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
+        except Exception as e:
+            logger.error(f"❌ Error sending message: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route('/api/wechat/open-chat', methods=['POST'])

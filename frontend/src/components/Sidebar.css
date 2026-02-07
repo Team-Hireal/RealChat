@@ -3,7 +3,38 @@
   padding: 30px;
   border-right: 1px solid var(--glass-border);
   overflow-y: auto;
+  overflow-anchor: none; /* Prevent scroll anchoring */
   height: 100%;
+  scroll-behavior: auto; /* Disable smooth scrolling */
+}
+
+/* Custom Scrollbar Styling - Consistent with ActivityLogs */
+.sidebar::-webkit-scrollbar {
+  width: 10px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: var(--glass-bg-dark);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all var(--transition-fast);
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(7, 193, 96, 0.5);
+  box-shadow: 0 0 10px rgba(7, 193, 96, 0.3);
+}
+
+/* Firefox scrollbar styling */
+.sidebar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) var(--glass-bg-dark);
 }
 
 .section {

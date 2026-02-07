@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { ACTIONS } from '../context/AppReducer';
 import apiService from '../services/api';
@@ -22,6 +22,7 @@ const Sidebar = () => {
     auto_forward: false,
     command_mode: true
   });
+  const sidebarRef = useRef(null);
 
   useEffect(() => {
     loadBackendConfig();
@@ -29,6 +30,32 @@ const Sidebar = () => {
     const interval = setInterval(refreshWindow, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // Prevent auto-scroll on focus
+  useEffect(() => {
+    const sidebar = sidebarRef.current;
+    if (!sidebar) return;
+
+    const preventScrollOnFocus = (e) => {
+      const scrollTop = sidebar.scrollTop;
+      // Restore scroll position after focus
+      requestAnimationFrame(() => {
+        sidebar.scrollTop = scrollTop;
+      });
+    };
+
+    // Add event listener to all focusable elements
+    const focusableElements = sidebar.querySelectorAll('input, select, button, textarea');
+    focusableElements.forEach(element => {
+      element.addEventListener('focus', preventScrollOnFocus);
+    });
+
+    return () => {
+      focusableElements.forEach(element => {
+        element.removeEventListener('focus', preventScrollOnFocus);
+      });
+    };
+  }, [backendConfig, automation]); // Re-run when config changes (new elements might be added)
 
   const addLog = (message, type = 'info') => {
     dispatch({
@@ -222,7 +249,7 @@ const Sidebar = () => {
   };
 
   return (
-    <div className="sidebar">
+    <div className="sidebar" ref={sidebarRef}>
       {/* Current Chat Display */}
       <CurrentChatDisplay />
 
