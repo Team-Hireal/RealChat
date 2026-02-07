@@ -9,6 +9,7 @@ const ChatBox = () => {
   const [selectedModel, setSelectedModel] = useState('claude');
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
+  const processingRef = useRef(false); // Flag to prevent duplicate processing
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -54,6 +55,14 @@ const ChatBox = () => {
     socketRef.current.on('wechat_message', (data) => {
       console.log('Received WeChat message:', data);
 
+      // Prevent duplicate processing
+      if (processingRef.current) {
+        console.warn('Already processing a message, skipping duplicate');
+        return;
+      }
+
+      processingRef.current = true;
+
       // Add WeChat message as user message
       const wechatMessage = {
         role: 'user',
@@ -64,19 +73,27 @@ const ChatBox = () => {
 
       setMessages(prev => [...prev, wechatMessage]);
 
-      // Automatically send to AI for processing
-      processWeChatMessage(data.text, [...messages, wechatMessage]);
+      // Process message after a small delay to ensure state is updated
+      setTimeout(() => {
+        setMessages(currentMessages => {
+          processWeChatMessage(data.text, [...currentMessages]);
+          return currentMessages;
+        });
+      }, 100);
     });
 
     return () => {
+      socketRef.current?.off('wechat_message');
       socketRef.current?.disconnect();
     };
-  }, [messages]);
+  }, []); // Empty dependency array - only set up listener once
 
   const processWeChatMessage = async (messageText, currentMessages) => {
+    console.log('[processWeChatMessage] Starting processing for:', messageText);
     setIsLoading(true);
 
     try {
+      console.log('[processWeChatMessage] Sending to /api/chat');
       const response = await fetch('http://localhost:5001/api/chat', {
         method: 'POST',
         headers: {
@@ -91,6 +108,7 @@ const ChatBox = () => {
       });
 
       const data = await response.json();
+      console.log('[processWeChatMessage] Received AI response:', data.response);
 
       if (data.success) {
         const aiMessage = {
@@ -109,7 +127,8 @@ const ChatBox = () => {
 
           if (chatData.success && chatData.chat) {
             const currentChat = chatData.chat;
-            console.log(`Sending AI response to WeChat chat: ${currentChat}`);
+            console.log(`[processWeChatMessage] Sending AI response to WeChat chat: ${currentChat}`);
+            console.log(`[processWeChatMessage] Message to send: "${data.response}"`);
 
             // Send message directly to WeChat without any filtering
             const sendResponse = await fetch('http://localhost:5001/api/wechat/send', {
@@ -126,13 +145,13 @@ const ChatBox = () => {
             const sendData = await sendResponse.json();
 
             if (sendData.success) {
-              console.log('✅ AI response sent to WeChat successfully');
+              console.log('[processWeChatMessage] ✅ AI response sent to WeChat successfully');
             } else {
-              console.warn('⚠️ Failed to send AI response to WeChat:', sendData.error);
+              console.warn('[processWeChatMessage] ⚠️ Failed to send AI response to WeChat:', sendData.error);
             }
           }
         } catch (sendError) {
-          console.error('Error sending AI response to WeChat:', sendError);
+          console.error('[processWeChatMessage] Error sending AI response to WeChat:', sendError);
         }
       } else {
         const errorMessage = {
@@ -152,6 +171,7 @@ const ChatBox = () => {
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
+      processingRef.current = false; // Reset processing flag
     }
   };
 

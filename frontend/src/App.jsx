@@ -8,6 +8,7 @@ import MainPanel from './components/MainPanel';
 import useConfig from './hooks/useConfig';
 import usePolling from './hooks/usePolling';
 import apiService from './services/api';
+import soundService from './services/soundService';
 import io from 'socket.io-client';
 import './App.css';
 
@@ -43,6 +44,10 @@ function AppContent() {
 
     socket.on('bridge_message', (data) => {
       console.log('📨 Bridge message:', data);
+
+      // Play notification sound for new message
+      soundService.playMessage();
+
       dispatch({
         type: ACTIONS.ADD_LOG,
         payload: {
@@ -55,6 +60,10 @@ function AppContent() {
 
     socket.on('ai_response', (data) => {
       console.log('🤖 AI response:', data);
+
+      // Play completion sound when AI finishes responding
+      soundService.playComplete();
+
       dispatch({
         type: ACTIONS.ADD_LOG,
         payload: {
@@ -77,6 +86,9 @@ function AppContent() {
     });
 
     socket.on('message_sent', (data) => {
+      // Play success sound when message is sent
+      soundService.playSuccess();
+
       dispatch({
         type: ACTIONS.ADD_LOG,
         payload: {
