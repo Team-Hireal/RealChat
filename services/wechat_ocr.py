@@ -130,11 +130,18 @@ class WeChatOCR:
 
             logger.info(f"Message area: x={msg_x}, y={msg_y}, w={msg_w}, h={msg_h}")
 
-            # Capture screenshot of message area only
+            # IMPORTANT: Only capture the BOTTOM 200 pixels of the message area
+            # This ensures we only read the newest message, not old messages
+            bottom_height = min(200, msg_h)  # Capture bottom 200px or less if window is smaller
+            bottom_y = msg_y + msg_h - bottom_height  # Start from bottom
+
+            logger.info(f"Capturing BOTTOM of message area only: y={bottom_y}, h={bottom_height}")
+
+            # Capture screenshot of BOTTOM message area only (newest message)
             cmd = [
                 'screencapture',
                 '-x',  # No sound
-                '-R', f"{msg_x},{msg_y},{msg_w},{msg_h}",  # Region
+                '-R', f"{msg_x},{bottom_y},{msg_w},{bottom_height}",  # Bottom region only
                 output_path
             ]
 

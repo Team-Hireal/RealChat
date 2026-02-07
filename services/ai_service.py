@@ -115,13 +115,25 @@ class AIService:
                 return None
 
         except requests.exceptions.RequestException as e:
-            logger.error(f"AI API request failed: {e}")
-            # Log response body for debugging
-            try:
-                if hasattr(e, 'response') and e.response is not None:
-                    logger.error(f"Response body: {e.response.text}")
-            except:
-                pass
+            # Extract error details for better logging
+            error_msg = str(e)
+            status_code = None
+
+            if hasattr(e, 'response') and e.response is not None:
+                status_code = e.response.status_code
+                try:
+                    error_body = e.response.json()
+                    if 'error' in error_body and 'message' in error_body['error']:
+                        error_msg = error_body['error']['message']
+                except:
+                    pass
+
+            # Log with status code for better filtering
+            if status_code == 403:
+                logger.error(f"AI API forbidden (403): {error_msg}")
+            else:
+                logger.error(f"AI API request failed: {error_msg}")
+
             return None
         except Exception as e:
             logger.error(f"AI service error: {e}")

@@ -23,13 +23,36 @@ load_dotenv()
 from services.wechat_service import WeChatService
 from services.ai_service import AIService
 from modules.command_parser import CommandParser, CommandExecutor
+from utils.logging_config import ColoredFormatter, RateLimitedLogger, EndpointFilter
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+# Configure enhanced logging
+logging.setLoggerClass(RateLimitedLogger)
+
+# Create console handler with colored formatter
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+formatter = ColoredFormatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%H:%M:%S'
 )
+console_handler.setFormatter(formatter)
+console_handler.addFilter(EndpointFilter())
+
+# Configure root logger
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
+root_logger.addHandler(console_handler)
+
+# Reduce werkzeug verbosity
+logging.getLogger('werkzeug').setLevel(logging.WARNING)
+
+# Get logger for this module
 logger = logging.getLogger(__name__)
+
+# Log startup message
+logger.info("=" * 60)
+logger.info("🚀 RealChat Backend Starting")
+logger.info("=" * 60)
 
 # Initialize Flask app
 app = Flask(__name__, static_folder='frontend/dist', static_url_path='')
@@ -1655,9 +1678,9 @@ def emit_current_chat_updates():
                             continue
 
                         try:
-                            logger.info("[AUTO-DETECT] Running OCR scan...")
-                            # Run OCR to extract messages
-                            messages = wechat_service.read_messages_ocr()
+                            logger.info("[AUTO-DETECT] Running Accessibility API scan...")
+                            # Use Accessibility API instead of OCR (100% accurate!)
+                            messages = wechat_service.read_messages_accessibility()
 
                             if messages:
                                 # Deduplicate: only show new messages
