@@ -192,6 +192,8 @@ class WeChatOCR:
             let request = VNRecognizeTextRequest()
             request.recognitionLevel = .accurate
             request.usesLanguageCorrection = true
+            // Support Chinese (Simplified & Traditional) and English
+            request.recognitionLanguages = ["zh-Hans", "zh-Hant", "en-US"]
 
             let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
 

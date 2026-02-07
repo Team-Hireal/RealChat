@@ -74,6 +74,29 @@ class WeChatAccessibilityService:
 
         return None
 
+    def is_timestamp(self, text: str) -> bool:
+        """Check if text is a timestamp (should be ignored)"""
+        import re
+
+        # Strip whitespace
+        text = text.strip()
+
+        # Common timestamp patterns
+        timestamp_patterns = [
+            r'^\d{1,2}:\d{2}$',  # 00:33, 12:45, 9:30
+            r'^\d{1,2}:\d{2}\s*[AP]M$',  # 12:33 AM, 9:30 PM
+            r'^Yesterday\s+\d{1,2}:\d{2}$',  # Yesterday 12:33
+            r'^Today\s+\d{1,2}:\d{2}$',  # Today 12:33
+            r'^\d{1,2}/\d{1,2}$',  # 12/25
+            r'^\d{4}-\d{2}-\d{2}$',  # 2024-01-01
+        ]
+
+        for pattern in timestamp_patterns:
+            if re.match(pattern, text, re.IGNORECASE):
+                return True
+
+        return False
+
     def get_messages(self) -> List[Dict]:
         """
         Get all messages from the current WeChat chat
@@ -100,6 +123,10 @@ class WeChatAccessibilityService:
         for i, child in enumerate(children):
             text = self.extract_message_text(child)
             if text:
+                # Skip timestamps (UI elements, not actual messages)
+                if self.is_timestamp(text):
+                    continue
+
                 # Get position for ordering (use index as fallback)
                 y_pos = i
 
