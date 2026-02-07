@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import soundService from '../services/soundService';
 import './Settings.css';
 
 const Settings = ({ isOpen, onClose }) => {
@@ -10,6 +11,8 @@ const Settings = ({ isOpen, onClose }) => {
     activeProvider: 'anthropic',
     openclawEndpoint: 'http://localhost:3000'
   });
+
+  const [soundEnabled, setSoundEnabled] = useState(true);
 
   const [providerStatus, setProviderStatus] = useState({
     active: 'anthropic',
@@ -28,6 +31,13 @@ const Settings = ({ isOpen, onClose }) => {
     if (isOpen) {
       loadConfig();
       loadProviderStatus();
+      // Load sound preference from localStorage
+      const savedSoundPref = localStorage.getItem('soundEnabled');
+      if (savedSoundPref !== null) {
+        const enabled = savedSoundPref === 'true';
+        setSoundEnabled(enabled);
+        soundService.setEnabled(enabled);
+      }
     }
   }, [isOpen]);
 
@@ -112,6 +122,18 @@ const Settings = ({ isOpen, onClose }) => {
 
   const handleInputChange = (field, value) => {
     setConfig({ ...config, [field]: value });
+  };
+
+  const handleSoundToggle = () => {
+    const newValue = !soundEnabled;
+    setSoundEnabled(newValue);
+    soundService.setEnabled(newValue);
+    localStorage.setItem('soundEnabled', newValue.toString());
+
+    // Play a test sound when enabling
+    if (newValue) {
+      soundService.playSuccess();
+    }
   };
 
   if (!isOpen) return null;
@@ -280,6 +302,30 @@ const Settings = ({ isOpen, onClose }) => {
                 placeholder="http://localhost:3000"
               />
               <small>URL of your local OpenClaw/Clawdbot instance</small>
+            </div>
+          </section>
+
+          {/* Sound Notifications */}
+          <section className="settings-section">
+            <h3>🔔 Sound Notifications</h3>
+            <p className="section-description">
+              Enable audio notifications for app events
+            </p>
+
+            <div className="form-group">
+              <label className="toggle-label">
+                <input
+                  type="checkbox"
+                  checked={soundEnabled}
+                  onChange={handleSoundToggle}
+                />
+                <span className="toggle-text">
+                  {soundEnabled ? '🔊 Sounds Enabled' : '🔇 Sounds Disabled'}
+                </span>
+              </label>
+              <small>
+                Play sounds when AI responds, messages arrive, or actions complete
+              </small>
             </div>
           </section>
 

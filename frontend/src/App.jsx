@@ -20,6 +20,12 @@ function AppContent() {
   useEffect(() => {
     loadConfig();
 
+    // Initialize sound service from localStorage
+    const savedSoundPref = localStorage.getItem('soundEnabled');
+    if (savedSoundPref !== null) {
+      soundService.setEnabled(savedSoundPref === 'true');
+    }
+
     // Connect to Socket.IO for real-time updates
     const socket = io('http://localhost:5001');
 
