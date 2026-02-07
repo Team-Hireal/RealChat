@@ -152,11 +152,19 @@ class WeChatAccessibilityService:
         latest = user_messages[0]
 
         # Check if we've already processed this message
-        msg_signature = f"{latest['text']}_{latest['index']}"
+        # Use ONLY text as signature (index can change as messages are added/removed)
+        msg_signature = latest['text']
         if msg_signature in self.seen_messages:
             return None
 
         self.seen_messages.add(msg_signature)
+
+        # Keep seen_messages size manageable (last 100 messages)
+        if len(self.seen_messages) > 100:
+            # Convert to list, keep last 50, convert back to set
+            seen_list = list(self.seen_messages)
+            self.seen_messages = set(seen_list[-50:])
+
         return latest["text"]
 
 

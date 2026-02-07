@@ -21,70 +21,81 @@ const ChatBox = () => {
 
   // Set up Socket.IO connection for WeChat messages
   useEffect(() => {
-    socketRef.current = io('http://localhost:5001');
+    // Prevent multiple socket connections - reuse existing socket if available
+    if (!socketRef.current || !socketRef.current.connected) {
+      console.log('[ChatBox] Creating NEW socket connection');
+      socketRef.current = io('http://localhost:5001', {
+        reconnection: false,  // Disable auto-reconnection to prevent duplicates
+        forceNew: true  // Force new connection (close old ones)
+      });
 
-    socketRef.current.on('connect', () => {
-      console.log('ChatBox connected to Socket.IO');
-    });
+      socketRef.current.on('connect', () => {
+        console.log('[ChatBox] Socket connected - ID:', socketRef.current.id);
+      });
 
-    // Listen for context load event (from Test OCR button)
-    socketRef.current.on('load_context', (data) => {
-      console.log('Loading context:', data);
+      // Listen for context load event (from Test OCR button)
+      socketRef.current.on('load_context', (data) => {
+        console.log('[ChatBox] Loading context:', data);
 
-      // Add context as ONE user message
-      const contextMessage = {
-        role: 'user',
-        content: data.context,
-        timestamp: new Date().toLocaleTimeString(),
-        source: 'wechat_context'
-      };
+        // Add context as ONE user message
+        const contextMessage = {
+          role: 'user',
+          content: data.context,
+          timestamp: new Date().toLocaleTimeString(),
+          source: 'wechat_context'
+        };
 
-      setMessages([contextMessage]);
+        setMessages([contextMessage]);
 
-      // Add system message
-      const systemMessage = {
-        role: 'assistant',
-        content: `Loaded ${data.message_count} messages from WeChat as context. I'm ready to respond to new messages.`,
-        model: 'system',
-        timestamp: new Date().toLocaleTimeString()
-      };
-      setMessages(prev => [...prev, systemMessage]);
-    });
+        // Add system message
+        const systemMessage = {
+          role: 'assistant',
+          content: `Loaded ${data.message_count} messages from WeChat as context. I'm ready to respond to new messages.`,
+          model: 'system',
+          timestamp: new Date().toLocaleTimeString()
+        };
+        setMessages(prev => [...prev, systemMessage]);
+      });
 
-    // Listen for WeChat messages
-    socketRef.current.on('wechat_message', (data) => {
-      console.log('Received WeChat message:', data);
+      // Listen for WeChat messages
+      socketRef.current.on('wechat_message', (data) => {
+        console.log('[ChatBox] Received WeChat message:', data);
 
-      // Prevent duplicate processing
-      if (processingRef.current) {
-        console.warn('Already processing a message, skipping duplicate');
-        return;
-      }
+        // Prevent duplicate processing
+        if (processingRef.current) {
+          console.warn('[ChatBox] Already processing, SKIPPING duplicate');
+          return;
+        }
 
-      processingRef.current = true;
+        processingRef.current = true;
 
-      // Add WeChat message as user message
-      const wechatMessage = {
-        role: 'user',
-        content: data.text,
-        timestamp: data.timestamp,
-        source: 'wechat'
-      };
+        // Add WeChat message as user message
+        const wechatMessage = {
+          role: 'user',
+          content: data.text,
+          timestamp: data.timestamp,
+          source: 'wechat'
+        };
 
-      setMessages(prev => [...prev, wechatMessage]);
+        setMessages(prev => [...prev, wechatMessage]);
 
-      // Process message after a small delay to ensure state is updated
-      setTimeout(() => {
-        setMessages(currentMessages => {
-          processWeChatMessage(data.text, [...currentMessages]);
-          return currentMessages;
-        });
-      }, 100);
-    });
+        // Process message after a small delay to ensure state is updated
+        setTimeout(() => {
+          setMessages(currentMessages => {
+            processWeChatMessage(data.text, [...currentMessages]);
+            return currentMessages;
+          });
+        }, 100);
+      });
+    } else {
+      console.log('[ChatBox] Reusing existing socket connection - ID:', socketRef.current.id);
+    }
 
     return () => {
+      console.log('[ChatBox] Cleanup - removing listeners');
       socketRef.current?.off('wechat_message');
-      socketRef.current?.disconnect();
+      socketRef.current?.off('load_context');
+      // Don't disconnect - keep connection alive for reuse
     };
   }, []); // Empty dependency array - only set up listener once
 
