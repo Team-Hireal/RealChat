@@ -1125,7 +1125,7 @@ def chat_with_ai():
                         'model': 'claude-sonnet-4-20250514',
                         'history': history
                     },
-                    timeout=30
+                    timeout=10  # Reduced from 30 to 10 seconds
                 )
 
                 if response.status_code == 200:
@@ -1164,22 +1164,15 @@ def chat_with_ai():
                             'model': 'zypher'
                         })
                 else:
-                    return jsonify({
-                        'success': False,
-                        'error': f'Zypher Agent returned status {response.status_code}'
-                    }), 500
+                    logger.warning(f'Zypher Agent returned status {response.status_code}, falling back to Claude')
+                    # Fall through to Claude backend below
 
             except requests.exceptions.ConnectionError:
-                return jsonify({
-                    'success': False,
-                    'error': 'Zypher Agent service is not running. Start it with: cd zypher-agent && deno task start'
-                }), 503
+                logger.warning('Zypher Agent service is not running, falling back to Claude')
+                # Fall through to Claude backend below
             except Exception as e:
-                logger.error(f"Error connecting to Zypher Agent: {e}")
-                return jsonify({
-                    'success': False,
-                    'error': f'Failed to connect to Zypher Agent: {str(e)}'
-                }), 500
+                logger.error(f"Error connecting to Zypher Agent: {e}, falling back to Claude")
+                # Fall through to Claude backend below
 
         # Load AI settings
         ai_settings = load_ai_settings()
@@ -1194,6 +1187,11 @@ def chat_with_ai():
         # Try to use Anthropic API
         try:
             from anthropic import Anthropic
+
+            # IMPORTANT: Override system environment variables with settings from ai_settings.json
+            # This ensures ai_settings.json takes priority over system env vars
+            os.environ['ANTHROPIC_API_KEY'] = ai_settings['api_key']
+            os.environ['ANTHROPIC_BASE_URL'] = ai_settings.get('base_url', 'https://api.anthropic.com')
 
             client = Anthropic(
                 api_key=ai_settings['api_key'],

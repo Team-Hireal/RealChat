@@ -160,29 +160,62 @@ async function main() {
   console.log("🤖 Initializing Zypher Agent for RealChat...");
 
   try {
-    // Load AI settings from parent directory (shared with Flask backend)
-    const aiSettings = await loadAISettings();
-
     let apiKey: string;
     let baseURL: string;
     let defaultModel: string;
 
-    if (aiSettings) {
-      console.log("✅ Loaded AI settings from ai_settings.json");
-      apiKey = aiSettings.api_key;
-      baseURL = aiSettings.base_url || "https://api.anthropic.com";
-      defaultModel = aiSettings.model || "claude-sonnet-4-20250514";
+    // Priority 1: Check ZYPHER_* environment variables first (from .env file)
+    // These use ZYPHER_ prefix to avoid conflicts with system ANTHROPIC_* variables
+    const zypherApiKey = Deno.env.get("ZYPHER_API_KEY");
+    const zypherBaseURL = Deno.env.get("ZYPHER_BASE_URL");
+    const zypherModel = Deno.env.get("ZYPHER_MODEL");
+
+    if (zypherApiKey) {
+      // Use ZYPHER_* environment variables (highest priority)
+      console.log("✅ Using ZYPHER_* environment variables from .env file");
+      apiKey = zypherApiKey;
+      baseURL = zypherBaseURL || "https://api.anthropic.com";
+      defaultModel = zypherModel || "claude-sonnet-4-5-20250929";
       console.log(`   API Base URL: ${baseURL}`);
       console.log(`   Default Model: ${defaultModel}`);
     } else {
-      console.log("📝 Using environment variables for configuration");
-      apiKey = getRequiredEnv("ANTHROPIC_API_KEY");
-      baseURL = getRequiredEnv("ANTHROPIC_BASE_URL", "https://api.anthropic.com");
-      defaultModel = getRequiredEnv("ANTHROPIC_MODEL", "claude-sonnet-4-20250514");
+      // Priority 2: Check ANTHROPIC_* environment variables
+      const envApiKey = Deno.env.get("ANTHROPIC_API_KEY");
+      const envBaseURL = Deno.env.get("ANTHROPIC_BASE_URL");
+      const envModel = Deno.env.get("ANTHROPIC_MODEL");
+
+      if (envApiKey) {
+        // Use ANTHROPIC_* environment variables
+        console.log("✅ Using ANTHROPIC_* environment variables");
+        apiKey = envApiKey;
+        baseURL = envBaseURL || "https://api.anthropic.com";
+        defaultModel = envModel || "claude-sonnet-4-5-20250929";
+        console.log(`   API Base URL: ${baseURL}`);
+        console.log(`   Default Model: ${defaultModel}`);
+      } else {
+        // Priority 3: Fall back to ai_settings.json (shared with Flask backend)
+        const aiSettings = await loadAISettings();
+
+        if (aiSettings) {
+          console.log("✅ Loaded AI settings from ai_settings.json");
+          apiKey = aiSettings.api_key;
+          baseURL = aiSettings.base_url || "https://api.anthropic.com";
+          defaultModel = aiSettings.model || "claude-sonnet-4-5-20250929";
+          console.log(`   API Base URL: ${baseURL}`);
+          console.log(`   Default Model: ${defaultModel}`);
+        } else {
+          throw new Error("No API configuration found. Please set ZYPHER_API_KEY environment variable or create ai_settings.json");
+        }
+      }
     }
 
     // Initialize the agent execution context
     const zypherContext = await createZypherContext(Deno.cwd());
+
+    // IMPORTANT: Override system ANTHROPIC_* environment variables
+    // This ensures our ZYPHER_* settings take priority
+    Deno.env.set("ANTHROPIC_API_KEY", apiKey);
+    Deno.env.set("ANTHROPIC_BASE_URL", baseURL);
 
     // Create the agent with Anthropic provider using shared configuration
     const agent = new ZypherAgent(
@@ -190,6 +223,7 @@ async function main() {
       new AnthropicModelProvider({
         apiKey: apiKey,
         baseURL: baseURL,
+        defaultModel: defaultModel,
       })
     );
 
