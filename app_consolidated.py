@@ -1122,7 +1122,7 @@ def chat_with_ai():
                     f"{zypher_url}/api/chat",
                     json={
                         'message': message,
-                        'model': 'claude-sonnet-4-20250514',
+                        'model': 'claude-sonnet-4-5-20250929',
                         'history': history
                     },
                     timeout=10  # Reduced from 30 to 10 seconds

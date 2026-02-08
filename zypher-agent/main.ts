@@ -92,19 +92,18 @@ async function startHttpServer(agent: ZypherAgent, defaultModel: string) {
         }
 
         // Add WeChat-specific instructions
-        const fullPrompt = `${contextPrompt}You are a WeChat messaging assistant. Keep responses concise and conversational, like instant messaging. Always start responses with '[Agent]'. Current user message: ${message}`;
+        const fullPrompt = `${contextPrompt}You are Zypher, a WeChat messaging assistant. When asked who you are or what your name is, clearly identify yourself as "Zypher". Keep responses concise and conversational, like instant messaging. Always start responses with '[Agent]'. Current user message: ${message}`;
 
-        // Run the agent task with the configured model
-        const modelName = model || defaultModel;
-        console.log(`[Zypher] Processing message with model: ${modelName}`);
+        // Run the agent task (model is set at initialization)
+        console.log(`[Zypher] Processing message with default model`);
 
-        const event$ = agent.runTask(fullPrompt, modelName);
+        const event$ = agent.runTask(fullPrompt);
 
         // Collect the response - convert Observable to async iterable
         let response = "";
         for await (const event of eachValueFrom(event$)) {
           if (event.type === "text") {
-            response += event.text;
+            response += event.content;  // FIXED: Use 'content' not 'text'
           }
         }
 
@@ -221,9 +220,11 @@ async function main() {
     const agent = new ZypherAgent(
       zypherContext,
       new AnthropicModelProvider({
-        apiKey: apiKey,
-        baseURL: baseURL,
-        defaultModel: defaultModel,
+        model: defaultModel,  // FIXED: Use 'model' not 'defaultModel'
+        anthropicClientOptions: {
+          apiKey: apiKey,
+          baseURL: baseURL,
+        }
       })
     );
 
