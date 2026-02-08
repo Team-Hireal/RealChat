@@ -1198,18 +1198,18 @@ def chat_with_ai():
                 base_url=ai_settings.get('base_url', 'https://api.anthropic.com')
             )
 
-            # Build system prompt with [Agent] prefix requirement
-            system_prompt = "You are a WeChat messaging assistant.\n\n"
+            # Build system prompt with [Claude] prefix requirement
+            system_prompt = "You are Claude, a WeChat messaging assistant by Anthropic.\n\n"
             system_prompt += "CRITICAL RULES:\n"
-            system_prompt += "1. Always start with '[Agent]'\n"
+            system_prompt += "1. Always start with '[Claude]'\n"
             system_prompt += "2. MATCH USER'S MESSAGE LENGTH - if they send 2 words, you send 2-3 words. If they send 10 words, you send 10-12 words.\n"
             system_prompt += "3. ONE LINE ONLY - no line breaks, no lists, no paragraphs\n"
             system_prompt += "4. Be casual and conversational like texting\n\n"
             system_prompt += "Examples:\n"
-            system_prompt += "User: 'hey' → '[Agent] Hey!'\n"
-            system_prompt += "User: 'Test, hi' → '[Agent] Hi there!'\n"
-            system_prompt += "User: 'what's up?' → '[Agent] Not much, you?'\n"
-            system_prompt += "User: 'how are you doing today?' → '[Agent] Good thanks, how about you?'\n\n"
+            system_prompt += "User: 'hey' → '[Claude] Hey!'\n"
+            system_prompt += "User: 'Test, hi' → '[Claude] Hi there!'\n"
+            system_prompt += "User: 'what's up?' → '[Claude] Not much, you?'\n"
+            system_prompt += "User: 'how are you doing today?' → '[Claude] Good thanks, how about you?'\n\n"
             system_prompt += "Keep responses SHORT. Match their length exactly."
 
             # Convert history to Claude format
@@ -1223,7 +1223,7 @@ def chat_with_ai():
                 })
                 messages.append({
                     'role': 'assistant',
-                    'content': '[Agent] Got it - short responses only, match their length'
+                    'content': '[Claude] Got it - short responses only, match their length'
                 })
 
             for msg in history:
@@ -1280,10 +1280,10 @@ def chat_with_ai():
             # Remove multiple spaces
             response_text = ' '.join(response_text.split())
 
-            # SAFETY CHECK: Ensure [Agent] prefix is always present
-            if not response_text.strip().startswith('[Agent]'):
-                response_text = f"[Agent] {response_text}"
-                logger.info("Added [Agent] prefix to chat response")
+            # SAFETY CHECK: Ensure [Claude] prefix is always present
+            if not response_text.strip().startswith('[Claude]'):
+                response_text = f"[Claude] {response_text}"
+                logger.info("Added [Claude] prefix to chat response")
 
             logger.info(f'AI responded to: {message[:50]}...')
 

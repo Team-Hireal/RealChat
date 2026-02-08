@@ -274,20 +274,30 @@ class WeChatOCR:
         if not text or len(text.strip()) < 3:
             return False
 
-        # Filter out [Agent] messages with ROBUST detection
-        # OCR often misreads [Agent] as variations like "ent]", "gent]", "Agent]", etc.
+        # Filter out AI agent messages with ROBUST detection
+        # OCR often misreads tags as variations
         agent_patterns = [
-            r'\[Agent\]',  # Standard [Agent]
+            r'\[Claude\]',  # Claude tag
+            r'\[claude\]',  # Lowercase
+            r'\[Zypher\]',  # Zypher tag
+            r'\[zypher\]',  # Lowercase
+            r'\[Agent\]',  # Legacy Agent tag
             r'\[agent\]',  # Lowercase
+            r'laude\]',  # Common OCR error for Claude
+            r'Claude\]',  # Missing opening bracket
+            r'\[Claud',  # Partial match
+            r'ypher\]',  # Common OCR error for Zypher
+            r'Zypher\]',  # Missing opening bracket
+            r'\[Zyphe',  # Partial match
             r'ent\]',  # Common OCR error: "ent]"
             r'gent\]',  # Common OCR error: "gent]"
             r'Agent\]',  # Missing opening bracket
             r'\[Agen',  # Partial match
             r'› you today',  # Common fragment from "How can I help you today?"
-            r'How can I help you',  # Agent's common phrase
-            r'I\'m here to help',  # Agent's common phrase
-            r'Nice to meet you',  # Agent's common phrase
-            r'Feel free to',  # Agent's common phrase
+            r'How can I help you',  # Common phrase
+            r'I\'m here to help',  # Common phrase
+            r'Nice to meet you',  # Common phrase
+            r'Feel free to',  # Common phrase
         ]
 
         for pattern in agent_patterns:
@@ -339,13 +349,18 @@ class WeChatOCR:
 
     def _is_agent_response(self, text: str) -> bool:
         """Check if text matches any recent agent responses"""
-        # First check: if [Agent] appears anywhere in text, it's an agent message
-        if '[Agent]' in text or '[agent]' in text.lower():
-            logger.info(f"Text contains [Agent] marker: '{text[:50]}...'")
-            return True
+        # First check: if any AI agent tag appears anywhere in text
+        agent_tags = ['[Claude]', '[claude]', '[Zypher]', '[zypher]', '[Agent]', '[agent]']
+        for tag in agent_tags:
+            if tag in text:
+                logger.info(f"Text contains {tag} marker: '{text[:50]}...'")
+                return True
 
-        # Remove [Agent] prefix if present
-        clean_text = text.replace('[Agent]', '').replace('[agent]', '').strip()
+        # Remove agent prefixes if present
+        clean_text = text
+        for tag in agent_tags:
+            clean_text = clean_text.replace(tag, '')
+        clean_text = clean_text.strip()
         normalized_text = self._normalize_text(clean_text)
 
         # Check if message starts with last 3 words of previous agent response

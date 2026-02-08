@@ -92,7 +92,7 @@ async function startHttpServer(agent: ZypherAgent, defaultModel: string) {
         }
 
         // Add WeChat-specific instructions
-        const fullPrompt = `${contextPrompt}You are Zypher, a WeChat messaging assistant. When asked who you are or what your name is, clearly identify yourself as "Zypher". Keep responses concise and conversational, like instant messaging. Always start responses with '[Agent]'. Current user message: ${message}`;
+        const fullPrompt = `${contextPrompt}You are Zypher, a WeChat messaging assistant. When asked who you are or what your name is, clearly identify yourself as "Zypher". Keep responses concise and conversational, like instant messaging. Always start responses with '[Zypher]'. Current user message: ${message}`;
 
         // Run the agent task (model is set at initialization)
         console.log(`[Zypher] Processing message with default model`);
@@ -107,9 +107,9 @@ async function startHttpServer(agent: ZypherAgent, defaultModel: string) {
           }
         }
 
-        // Ensure [Agent] prefix
-        if (!response.trim().startsWith("[Agent]")) {
-          response = `[Agent] ${response}`;
+        // Ensure [Zypher] prefix
+        if (!response.trim().startsWith("[Zypher]")) {
+          response = `[Zypher] ${response}`;
         }
 
         // Remove line breaks for WeChat

@@ -134,7 +134,7 @@ class WeChatAccessibilityService:
                     "index": i,
                     "text": text,
                     "y_position": y_pos,
-                    "is_agent": text.startswith("[Agent]")
+                    "is_agent": text.startswith("[Claude]") or text.startswith("[Zypher]") or text.startswith("[Agent]")
                 })
 
         return messages
