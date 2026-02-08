@@ -10,6 +10,7 @@ const ChatBox = () => {
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
   const processingRef = useRef(false); // Flag to prevent duplicate processing
+  const selectedModelRef = useRef('claude'); // Store current model in ref for socket listeners
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -18,6 +19,12 @@ const ChatBox = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Sync selectedModel to ref so socket listeners always have the latest value
+  useEffect(() => {
+    selectedModelRef.current = selectedModel;
+    console.log(`[ChatBox] Model selection changed to: ${selectedModel}`);
+  }, [selectedModel]);
 
   // Set up Socket.IO connection for WeChat messages
   useEffect(() => {
@@ -100,11 +107,13 @@ const ChatBox = () => {
   }, []); // Empty dependency array - only set up listener once
 
   const processWeChatMessage = async (messageText, currentMessages) => {
-    console.log('[processWeChatMessage] Starting processing for:', messageText);
+    // Use ref to get the current model selection (fixes closure issue in socket listeners)
+    const currentModel = selectedModelRef.current;
+    console.log(`[processWeChatMessage] Starting processing for: ${messageText} with model: ${currentModel}`);
     setIsLoading(true);
 
     try {
-      console.log('[processWeChatMessage] Sending to /api/chat');
+      console.log(`[processWeChatMessage] Sending to /api/chat with model: ${currentModel}`);
       const response = await fetch('http://localhost:5001/api/chat', {
         method: 'POST',
         headers: {
@@ -112,7 +121,7 @@ const ChatBox = () => {
         },
         body: JSON.stringify({
           message: messageText,
-          model: selectedModel,
+          model: currentModel,  // Use ref value instead of state
           history: currentMessages,
           send_to_wechat: false  // Don't send from backend, we'll send from frontend
         })
