@@ -313,6 +313,7 @@ const ChatBox = () => {
           >
             <option value="claude">Claude</option>
             <option value="zypher">Zypher</option>
+            <option value="openclaw">OpenClaw</option>
           </select>
           <button className="clear-chat-btn" onClick={loadInitialContext}>
             📥 Load Context
@@ -326,7 +327,7 @@ const ChatBox = () => {
       <div className="chatbox-messages">
         {messages.length === 0 ? (
           <div className="empty-state">
-            <p>👋 Start a conversation with {selectedModel === 'claude' ? 'Claude' : 'Zypher'}</p>
+            <p>👋 Start a conversation with {selectedModel === 'claude' ? 'Claude' : selectedModel === 'zypher' ? 'Zypher' : 'OpenClaw'}</p>
           </div>
         ) : (
           messages.map((msg, index) => (
@@ -360,7 +361,7 @@ const ChatBox = () => {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyPress={handleKeyPress}
-          placeholder={`Ask ${selectedModel === 'claude' ? 'Claude' : 'Zypher'} anything...`}
+          placeholder={`Ask ${selectedModel === 'claude' ? 'Claude' : selectedModel === 'zypher' ? 'Zypher' : 'OpenClaw'} anything...`}
           rows="3"
           disabled={isLoading}
         />

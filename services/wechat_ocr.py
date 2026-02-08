@@ -281,6 +281,8 @@ class WeChatOCR:
             r'\[claude\]',  # Lowercase
             r'\[Zypher\]',  # Zypher tag
             r'\[zypher\]',  # Lowercase
+            r'\[OpenClaw\]',  # OpenClaw tag
+            r'\[openclaw\]',  # Lowercase
             r'\[Agent\]',  # Legacy Agent tag
             r'\[agent\]',  # Lowercase
             r'laude\]',  # Common OCR error for Claude
@@ -289,6 +291,9 @@ class WeChatOCR:
             r'ypher\]',  # Common OCR error for Zypher
             r'Zypher\]',  # Missing opening bracket
             r'\[Zyphe',  # Partial match
+            r'penClaw\]',  # Common OCR error for OpenClaw
+            r'OpenClaw\]',  # Missing opening bracket
+            r'\[OpenCla',  # Partial match
             r'ent\]',  # Common OCR error: "ent]"
             r'gent\]',  # Common OCR error: "gent]"
             r'Agent\]',  # Missing opening bracket
@@ -350,7 +355,7 @@ class WeChatOCR:
     def _is_agent_response(self, text: str) -> bool:
         """Check if text matches any recent agent responses"""
         # First check: if any AI agent tag appears anywhere in text
-        agent_tags = ['[Claude]', '[claude]', '[Zypher]', '[zypher]', '[Agent]', '[agent]']
+        agent_tags = ['[Claude]', '[claude]', '[Zypher]', '[zypher]', '[OpenClaw]', '[openclaw]', '[Agent]', '[agent]']
         for tag in agent_tags:
             if tag in text:
                 logger.info(f"Text contains {tag} marker: '{text[:50]}...'")

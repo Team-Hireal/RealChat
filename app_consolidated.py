@@ -1112,6 +1112,16 @@ def chat_with_ai():
         if not message:
             return jsonify({'success': False, 'error': 'Message is required'}), 400
 
+        # Route to OpenClaw Agent if selected
+        if model == 'openclaw':
+            # TODO: Implement OpenClaw connection
+            logger.info("OpenClaw selected - connection not yet implemented")
+            return jsonify({
+                'success': True,
+                'response': '[OpenClaw] OpenClaw integration coming soon! Currently in setup phase.',
+                'model': 'openclaw'
+            })
+
         # Route to Zypher Agent if selected
         if model == 'zypher':
             try:
