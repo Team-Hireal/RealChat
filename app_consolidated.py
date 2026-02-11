@@ -1135,7 +1135,7 @@ def chat_with_ai():
                         'model': 'claude-sonnet-4-5-20250929',
                         'history': history
                     },
-                    timeout=10  # Reduced from 30 to 10 seconds
+                    timeout=30
                 )
 
                 if response.status_code == 200:
@@ -1173,16 +1173,39 @@ def chat_with_ai():
                             'response': response_text,
                             'model': 'zypher'
                         })
+                    else:
+                        # Zypher returned 200 but success=false
+                        error_msg = zypher_data.get('error', 'Unknown Zypher error')
+                        logger.warning(f'Zypher Agent returned error: {error_msg}')
+                        return jsonify({
+                            'success': False,
+                            'error': f'Zypher Agent error: {error_msg}'
+                        }), 500
                 else:
-                    logger.warning(f'Zypher Agent returned status {response.status_code}, falling back to Claude')
-                    # Fall through to Claude backend below
+                    logger.warning(f'Zypher Agent returned status {response.status_code}')
+                    return jsonify({
+                        'success': False,
+                        'error': f'Zypher Agent error (status {response.status_code}). Is the Deno service running?'
+                    }), 502
 
             except requests.exceptions.ConnectionError:
-                logger.warning('Zypher Agent service is not running, falling back to Claude')
-                # Fall through to Claude backend below
+                logger.warning('Zypher Agent service is not running on port 8000')
+                return jsonify({
+                    'success': False,
+                    'error': 'Zypher Agent is not running. Start it with: cd zypher-agent && deno task start'
+                }), 503
+            except requests.exceptions.Timeout:
+                logger.warning('Zypher Agent request timed out')
+                return jsonify({
+                    'success': False,
+                    'error': 'Zypher Agent timed out. Try again.'
+                }), 504
             except Exception as e:
-                logger.error(f"Error connecting to Zypher Agent: {e}, falling back to Claude")
-                # Fall through to Claude backend below
+                logger.error(f"Error connecting to Zypher Agent: {e}")
+                return jsonify({
+                    'success': False,
+                    'error': f'Zypher Agent error: {str(e)}'
+                }), 500
 
         # Load AI settings
         ai_settings = load_ai_settings()
