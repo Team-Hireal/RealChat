@@ -95,6 +95,7 @@ DEFAULT_SEARCH_TERM = "File"  # Search term to find File Transfer chat
 
 # AI Settings file
 AI_SETTINGS_FILE = Path('ai_settings.json')
+ZYPHER_ENV_FILE = Path('zypher-agent/.env')
 
 
 # ============================================================================
@@ -133,14 +134,50 @@ def load_ai_settings():
 
 
 def save_ai_settings(settings):
-    """Save AI settings to JSON file"""
+    """Save AI settings to JSON file and sync to Zypher .env"""
     try:
         with open(AI_SETTINGS_FILE, 'w') as f:
             json.dump(settings, f, indent=2)
+        # Sync credentials to Zypher .env so both backends use the same key
+        sync_zypher_env(settings)
         return True
     except Exception as e:
         logger.error(f"Error saving AI settings: {e}")
         return False
+
+
+def sync_zypher_env(settings):
+    """Sync AI settings to zypher-agent/.env so both backends share credentials"""
+    try:
+        api_key = settings.get('api_key', '')
+        base_url = settings.get('base_url', 'https://api.anthropic.com')
+        model = settings.get('model', 'claude-sonnet-4-5-20250929')
+
+        # Read existing .env to preserve non-credential settings (like ZYPHER_PORT)
+        existing_lines = {}
+        if ZYPHER_ENV_FILE.exists():
+            with open(ZYPHER_ENV_FILE, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, val = line.split('=', 1)
+                        existing_lines[key.strip()] = val.strip()
+
+        # Update credentials, keep other settings
+        existing_lines['ZYPHER_API_KEY'] = api_key
+        existing_lines['ZYPHER_BASE_URL'] = base_url
+        existing_lines['ZYPHER_MODEL'] = model
+
+        # Write back
+        with open(ZYPHER_ENV_FILE, 'w') as f:
+            f.write("# Zypher Agent Configuration\n")
+            f.write("# Auto-synced from AI Settings panel\n\n")
+            for key, val in existing_lines.items():
+                f.write(f"{key}={val}\n")
+
+        logger.info(f"Synced AI settings to {ZYPHER_ENV_FILE}")
+    except Exception as e:
+        logger.error(f"Failed to sync Zypher .env: {e}")
 
 
 # ============================================================================
@@ -1823,6 +1860,11 @@ if __name__ == '__main__':
     logger.info(f"WeChat: {'Running' if wechat_service.is_wechat_running() else 'Not running'}")
     logger.info(f"AI Model: {ai_service.model}")
     logger.info("=" * 60)
+
+    # Arrange WeChat and browser windows side by side
+    if wechat_service.is_wechat_running():
+        logger.info("Arranging windows: Browser (left) | WeChat (right)")
+        wechat_service.arrange_windows_side_by_side()
 
     # Auto-start agent if configured
     if os.getenv('AGENT_AUTO_START', 'false').lower() == 'true':

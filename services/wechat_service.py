@@ -39,6 +39,123 @@ class WeChatService:
         except Exception as e:
             logger.warning(f"Could not initialize Accessibility API: {e}")
 
+    def arrange_windows_side_by_side(self):
+        """
+        Arrange WeChat (right half) and browser (left half) on the same display.
+        Detects which display WeChat is on, gets its resolution, and snaps windows.
+        """
+        try:
+            from AppKit import NSScreen
+
+            # Primary screen height is needed to convert Cocoa coords → AppleScript coords
+            primary_h = int(NSScreen.screens()[0].frame().size.height)
+
+            # Find which screen WeChat is on using its current position
+            window_info = self.get_wechat_window_info()
+            wx = window_info.get('x', 0) if window_info else 0
+            wy = window_info.get('y', 0) if window_info else 0
+
+            # Convert WeChat's AppleScript position to Cocoa coords for screen matching
+            # AppleScript y → Cocoa y: cocoa_y = primary_h - applescript_y
+            cocoa_wx = wx
+            cocoa_wy = primary_h - wy
+
+            target_screen = None
+            for screen in NSScreen.screens():
+                f = screen.frame()
+                sx, sy = int(f.origin.x), int(f.origin.y)
+                sw, sh = int(f.size.width), int(f.size.height)
+                if sx <= cocoa_wx < sx + sw and sy <= cocoa_wy <= sy + sh:
+                    target_screen = screen
+                    break
+
+            if not target_screen:
+                target_screen = NSScreen.mainScreen()
+
+            # Get the visible frame (excludes menu bar and dock)
+            visible = target_screen.visibleFrame()
+            vx = int(visible.origin.x)
+            vy = int(visible.origin.y)
+            vw = int(visible.size.width)
+            vh = int(visible.size.height)
+
+            # Convert visible frame top-left from Cocoa → AppleScript coordinates
+            # Cocoa top-left of visible area = (vx, vy + vh)
+            # AppleScript y = primary_h - cocoa_y
+            as_top_y = primary_h - (vy + vh)
+            as_left_x = vx
+
+            half_w = vw // 2
+            right_x = as_left_x + half_w
+
+            logger.info(f"Screen resolution: {vw}x{vh}, positioning at y={as_top_y}")
+            logger.info(f"Browser: ({as_left_x},{as_top_y}) {half_w}x{vh} | WeChat: ({right_x},{as_top_y}) {half_w}x{vh}")
+
+            # Position WeChat on the right half
+            wechat_script = f'''
+            tell application "System Events"
+                tell process "WeChat"
+                    if (count of windows) > 0 then
+                        set position of window 1 to {{{right_x}, {as_top_y}}}
+                        set size of window 1 to {{{half_w}, {vh}}}
+                    end if
+                end tell
+            end tell
+            '''
+            subprocess.run(['osascript', '-e', wechat_script],
+                         capture_output=True, text=True, timeout=5)
+
+            # Position browser on the left half (try common browsers)
+            browser_script = f'''
+            set browserFound to false
+
+            if application "Google Chrome" is running then
+                tell application "System Events"
+                    tell process "Google Chrome"
+                        if (count of windows) > 0 then
+                            set position of window 1 to {{{as_left_x}, {as_top_y}}}
+                            set size of window 1 to {{{half_w}, {vh}}}
+                            set browserFound to true
+                        end if
+                    end tell
+                end tell
+            end if
+
+            if not browserFound and application "Safari" is running then
+                tell application "System Events"
+                    tell process "Safari"
+                        if (count of windows) > 0 then
+                            set position of window 1 to {{{as_left_x}, {as_top_y}}}
+                            set size of window 1 to {{{half_w}, {vh}}}
+                            set browserFound to true
+                        end if
+                    end tell
+                end tell
+            end if
+
+            if not browserFound and application "Arc" is running then
+                tell application "System Events"
+                    tell process "Arc"
+                        if (count of windows) > 0 then
+                            set position of window 1 to {{{as_left_x}, {as_top_y}}}
+                            set size of window 1 to {{{half_w}, {vh}}}
+                        end if
+                    end tell
+                end tell
+            end if
+            '''
+            subprocess.run(['osascript', '-e', browser_script],
+                         capture_output=True, text=True, timeout=5)
+
+            logger.info("Windows arranged: Browser (left) | WeChat (right)")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error arranging windows: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return False
+
     def _init_ocr_components(self):
         """Initialize OCR and message detection components"""
         try:
