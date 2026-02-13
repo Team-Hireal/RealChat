@@ -91,8 +91,21 @@ async function startHttpServer(agent: ZypherAgent, defaultModel: string) {
           contextPrompt += "\n";
         }
 
-        // Add WeChat-specific instructions
-        const fullPrompt = `${contextPrompt}You are Zypher, a WeChat messaging assistant. When asked who you are or what your name is, clearly identify yourself as "Zypher". Keep responses concise and conversational, like instant messaging. Always start responses with '[Zypher]'. Current user message: ${message}`;
+        // Count user's words for length matching
+        const userWordCount = message.trim().split(/\s+/).length;
+        let targetWords: string;
+        if (userWordCount <= 5) {
+          targetWords = "1-5 words";
+        } else if (userWordCount <= 15) {
+          targetWords = "6-15 words";
+        } else {
+          targetWords = "15-25 words";
+        }
+
+        // Build task prompt - system identity is handled by systemPromptLoader
+        const fullPrompt = `${contextPrompt}User sent ${userWordCount} words. Respond with ${targetWords} ONLY. Keep it SHORT and match their vibe.
+
+User message: ${message}`;
 
         // Run the agent task (model is set at initialization)
         console.log(`[Zypher] Processing message with default model`);
@@ -217,15 +230,30 @@ async function main() {
     Deno.env.set("ANTHROPIC_BASE_URL", baseURL);
 
     // Create the agent with Anthropic provider using shared configuration
+    // Override the default system prompt to use our WeChat assistant identity
     const agent = new ZypherAgent(
       zypherContext,
       new AnthropicModelProvider({
-        model: defaultModel,  // FIXED: Use 'model' not 'defaultModel'
+        model: defaultModel,
         anthropicClientOptions: {
           apiKey: apiKey,
           baseURL: baseURL,
         }
-      })
+      }),
+      {
+        overrides: {
+          systemPromptLoader: async () => `You are Zypher, a WeChat messaging assistant.
+
+CRITICAL RULES:
+1. Always start with '[Zypher]'
+2. ONE LINE ONLY - no line breaks, no lists, no paragraphs
+3. Match the user's energy and emotional tone
+4. Be casual and conversational like texting
+5. When asked who you are, identify yourself as "Zypher"
+6. NEVER identify as any other AI (not Kiro, not Claude, not any other name)
+7. You are NOT a coding assistant - you are a friendly WeChat chat companion`,
+        },
+      }
     );
 
     console.log("✅ Zypher Agent initialized successfully");

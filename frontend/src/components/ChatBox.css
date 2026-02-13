@@ -19,6 +19,37 @@
   border-bottom: 1px solid var(--glass-border);
 }
 
+.chat-tabs {
+  display: flex;
+  overflow-x: auto;
+  background: var(--glass-bg-dark);
+  border-bottom: 1px solid var(--glass-border);
+  padding: 0 8px;
+  gap: 2px;
+}
+
+.chat-tab {
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  transition: var(--transition-fast);
+}
+
+.chat-tab:hover {
+  color: var(--text-primary);
+  background: var(--glass-bg-light);
+}
+
+.chat-tab-active {
+  color: var(--wechat-green);
+  border-bottom-color: var(--wechat-green);
+}
+
 .chatbox-title {
   margin: 0;
   font-size: 18px;

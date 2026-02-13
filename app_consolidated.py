@@ -430,7 +430,8 @@ def read_messages():
                 if context_text:
                     socketio.emit('load_context', {
                         'context': f"Here are the current messages from WeChat:\n\n{context_text}",
-                        'message_count': len([m for m in messages if m.get('text', '').strip()])
+                        'message_count': len([m for m in messages if m.get('text', '').strip()]),
+                        'chat_name': selected_chat
                     })
                     logger.info(f"Emitted context load event with {len(messages)} messages")
 
@@ -1184,12 +1185,12 @@ def chat_with_ai():
                         if send_to_wechat:
                             logger.info("Attempting to send Zypher response back to WeChat...")
                             try:
-                                current_chat = wechat_service.get_current_chat()
-                                invalid_chats = ['No active chat', 'File Transfer', 'Search', 'Photos and Videos',
+                                current_chat = wechat_service.get_current_chat_name()
+                                blocked_chats = ['File Transfer', 'Search', 'Photos and Videos',
                                                 'Favorites', 'Official Accounts', 'Settings', 'Profile', 'Log Out',
                                                 'Help', 'Moments']
 
-                                if current_chat and current_chat not in invalid_chats:
+                                if current_chat not in blocked_chats:
                                     if wechat_service.ocr_reader:
                                         wechat_service.ocr_reader.mark_as_agent_message(response_text)
 
@@ -1199,7 +1200,7 @@ def chat_with_ai():
                                         wechat_service.ocr_reader.mark_as_agent_message(response_text)
                                         socketio.emit('log', {
                                             'type': 'success',
-                                            'message': f'🤖 Sent Zypher response to {current_chat}',
+                                            'message': f'🤖 Sent Zypher response to {current_chat or "WeChat"}',
                                             'timestamp': time.time()
                                         })
                             except Exception as send_error:
@@ -1338,54 +1339,46 @@ def chat_with_ai():
             if send_to_wechat:
                 logger.info("Attempting to send AI response back to WeChat...")
                 try:
-                    # Get current chat name
-                    current_chat = wechat_service.get_current_chat()
+                    # Get current chat name (for logging only - send_message pastes into current window regardless)
+                    current_chat = wechat_service.get_current_chat_name()
                     logger.info(f"Current chat detected: {current_chat}")
 
-                    # Filter out UI elements and invalid chats
-                    invalid_chats = ['No active chat', 'File Transfer', 'Search', 'Photos and Videos',
+                    # Only block sending for known non-chat UI elements
+                    blocked_chats = ['File Transfer', 'Search', 'Photos and Videos',
                                     'Favorites', 'Official Accounts', 'Settings', 'Profile', 'Log Out',
                                     'Help', 'Moments']
 
-                    if current_chat and current_chat not in invalid_chats:
-                        logger.info(f"Valid chat detected, sending message to: {current_chat}")
-
-                        # Mark as agent message BEFORE sending to prevent OCR from detecting it
-                        if wechat_service.ocr_reader:
-                            wechat_service.ocr_reader.mark_as_agent_message(response_text)
-                            logger.info("Pre-marked message as agent message (before sending)")
-
-                        # Send message to WeChat
-                        success = wechat_service.send_message(response_text, current_chat)
-
-                        if success:
-                            logger.info(f"✅ Sent AI response to WeChat: {current_chat}")
-
-                            # Mark as agent message again after sending (double safety)
-                            if wechat_service.ocr_reader:
-                                wechat_service.ocr_reader.mark_as_agent_message(response_text)
-                                logger.info("Post-marked message as agent message (after sending)")
-
-                            # Emit log event
-                            socketio.emit('log', {
-                                'type': 'success',
-                                'message': f'🤖 Sent AI response to {current_chat}',
-                                'timestamp': time.time()
-                            })
-                        else:
-                            logger.warning(f"Failed to send AI response to WeChat")
-                            socketio.emit('log', {
-                                'type': 'warning',
-                                'message': f'⚠️ Failed to send AI response to WeChat',
-                                'timestamp': time.time()
-                            })
-                    else:
-                        logger.warning(f"No valid chat to send response to. Current chat: {current_chat}")
+                    if current_chat in blocked_chats:
+                        logger.warning(f"Blocked sending to non-chat: {current_chat}")
                         socketio.emit('log', {
                             'type': 'warning',
                             'message': f'⚠️ Cannot send to "{current_chat}" - please open a real chat',
                             'timestamp': time.time()
                         })
+                    else:
+                        # Mark as agent message BEFORE sending to prevent OCR from detecting it
+                        if wechat_service.ocr_reader:
+                            wechat_service.ocr_reader.mark_as_agent_message(response_text)
+
+                        # Send message to WeChat (pastes into current window)
+                        success = wechat_service.send_message(response_text, current_chat)
+
+                        if success:
+                            logger.info(f"✅ Sent AI response to WeChat: {current_chat}")
+                            if wechat_service.ocr_reader:
+                                wechat_service.ocr_reader.mark_as_agent_message(response_text)
+                            socketio.emit('log', {
+                                'type': 'success',
+                                'message': f'🤖 Sent AI response to {current_chat or "WeChat"}',
+                                'timestamp': time.time()
+                            })
+                        else:
+                            logger.warning("Failed to send AI response to WeChat")
+                            socketio.emit('log', {
+                                'type': 'warning',
+                                'message': '⚠️ Failed to send AI response to WeChat',
+                                'timestamp': time.time()
+                            })
                 except Exception as send_error:
                     logger.error(f"Error sending to WeChat: {send_error}")
                     import traceback
@@ -1778,7 +1771,8 @@ def emit_current_chat_updates():
                                         socketio.emit('wechat_message', {
                                             'timestamp': last_timestamp,
                                             'text': last_text,
-                                            'source': 'wechat'
+                                            'source': 'wechat',
+                                            'chat_name': detected_chat
                                         })
 
                                     # Update last_messages to current messages
@@ -1808,6 +1802,7 @@ def emit_current_chat_updates():
 
             # Emit if changed (this is the key - emit immediately on change)
             if current_chat != last_emitted_chat:
+                last_messages = []  # Reset on chat switch to avoid cross-chat dedup
                 socketio.emit('current_chat_update', {
                     'chat': current_chat,
                     'detected': detected_chat is not None,

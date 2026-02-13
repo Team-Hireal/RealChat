@@ -7,7 +7,8 @@ import CurrentChatDisplay from './CurrentChatDisplay';
 import './Sidebar.css';
 
 const Sidebar = () => {
-  const { dispatch } = useAppContext();
+  const { state, dispatch } = useAppContext();
+  const { chatSessions, activeChat } = state;
   const [agentRunning, setAgentRunning] = useState(false);
   const [chatName, setChatName] = useState('File');
   const [windowInfo, setWindowInfo] = useState(null);
@@ -252,6 +253,25 @@ const Sidebar = () => {
     <div className="sidebar" ref={sidebarRef}>
       {/* Current Chat Display */}
       <CurrentChatDisplay />
+
+      {/* Conversations */}
+      {Object.keys(chatSessions).length > 0 && (
+        <div className="section">
+          <h3 className="section-title">Conversations</h3>
+          <div className="conversation-list">
+            {Object.entries(chatSessions).map(([name, msgs]) => (
+              <button
+                key={name}
+                className={`conversation-item ${name === activeChat ? 'conversation-active' : ''}`}
+                onClick={() => dispatch({ type: ACTIONS.SET_ACTIVE_CHAT, payload: name })}
+              >
+                <span className="conversation-name">{name}</span>
+                <span className="conversation-count">{msgs.length}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* AI Settings */}
       <AISettings />

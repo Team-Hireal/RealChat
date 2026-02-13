@@ -11,6 +11,11 @@ export const ACTIONS = {
   CLEAR_ERROR: 'CLEAR_ERROR',
   SET_CURRENT_CHAT: 'SET_CURRENT_CHAT',
   SET_SOCKET_CONNECTED: 'SET_SOCKET_CONNECTED',
+  SET_CHAT_SESSIONS: 'SET_CHAT_SESSIONS',
+  SET_ACTIVE_CHAT: 'SET_ACTIVE_CHAT',
+  ENSURE_CHAT_SESSION: 'ENSURE_CHAT_SESSION',
+  ADD_MESSAGE_TO_SESSION: 'ADD_MESSAGE_TO_SESSION',
+  REPLACE_SESSION_MESSAGES: 'REPLACE_SESSION_MESSAGES',
 };
 
 // Initial state
@@ -44,6 +49,8 @@ export const initialState = {
     detected: false,
   },
   socketConnected: false,
+  chatSessions: {},   // { chatName: messages[] }
+  activeChat: null,
 };
 
 // Reducer
@@ -117,6 +124,44 @@ export const appReducer = (state, action) => {
         ...state,
         socketConnected: action.payload,
       };
+
+    case ACTIONS.SET_CHAT_SESSIONS:
+      return {
+        ...state,
+        chatSessions: action.payload,
+      };
+
+    case ACTIONS.SET_ACTIVE_CHAT:
+      return {
+        ...state,
+        activeChat: action.payload,
+      };
+
+    case ACTIONS.ENSURE_CHAT_SESSION:
+      if (state.chatSessions[action.payload]) return state;
+      return {
+        ...state,
+        chatSessions: { ...state.chatSessions, [action.payload]: [] },
+      };
+
+    case ACTIONS.ADD_MESSAGE_TO_SESSION: {
+      const { chatName, message } = action.payload;
+      return {
+        ...state,
+        chatSessions: {
+          ...state.chatSessions,
+          [chatName]: [...(state.chatSessions[chatName] || []), message],
+        },
+      };
+    }
+
+    case ACTIONS.REPLACE_SESSION_MESSAGES: {
+      const { chatName: cn, messages: msgs } = action.payload;
+      return {
+        ...state,
+        chatSessions: { ...state.chatSessions, [cn]: msgs },
+      };
+    }
 
     default:
       return state;

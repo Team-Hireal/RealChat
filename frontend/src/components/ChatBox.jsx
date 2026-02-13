@@ -1,333 +1,171 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { useAppContext } from '../context/AppContext';
+import { ACTIONS } from '../context/AppReducer';
 import io from 'socket.io-client';
 import './ChatBox.css';
 
 const ChatBox = () => {
-  const [messages, setMessages] = useState([]);
+  const { state, dispatch } = useAppContext();
+  const { chatSessions, activeChat } = state;
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedModel, setSelectedModel] = useState('claude');
+  const [selectedModel, setSelectedModel] = useState('zypher');
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
-  const processingRef = useRef(false); // Flag to prevent duplicate processing
-  const selectedModelRef = useRef('claude'); // Store current model in ref for socket listeners
+  const processingRef = useRef(false);
+  const selectedModelRef = useRef('zypher');
+  const activeChatRef = useRef(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  const messages = activeChat ? (chatSessions[activeChat] || []) : [];
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  useEffect(() => { selectedModelRef.current = selectedModel; }, [selectedModel]);
+  useEffect(() => { activeChatRef.current = activeChat; }, [activeChat]);
 
-  // Sync selectedModel to ref so socket listeners always have the latest value
-  useEffect(() => {
-    selectedModelRef.current = selectedModel;
-    console.log(`[ChatBox] Model selection changed to: ${selectedModel}`);
-  }, [selectedModel]);
-
-  // Set up Socket.IO connection for WeChat messages
-  useEffect(() => {
-    // Prevent multiple socket connections - reuse existing socket if available
-    if (!socketRef.current || !socketRef.current.connected) {
-      console.log('[ChatBox] Creating NEW socket connection');
-      socketRef.current = io('http://localhost:5001', {
-        reconnection: false,  // Disable auto-reconnection to prevent duplicates
-        forceNew: true  // Force new connection (close old ones)
-      });
-
-      socketRef.current.on('connect', () => {
-        console.log('[ChatBox] Socket connected - ID:', socketRef.current.id);
-      });
-
-      // Listen for context load event (from Test OCR button)
-      socketRef.current.on('load_context', (data) => {
-        console.log('[ChatBox] Loading context:', data);
-
-        // Add context as ONE user message
-        const contextMessage = {
-          role: 'user',
-          content: data.context,
-          timestamp: new Date().toLocaleTimeString(),
-          source: 'wechat_context'
-        };
-
-        setMessages([contextMessage]);
-
-        // Add system message
-        const systemMessage = {
-          role: 'assistant',
-          content: `Loaded ${data.message_count} messages from WeChat as context. I'm ready to respond to new messages.`,
-          model: 'system',
-          timestamp: new Date().toLocaleTimeString()
-        };
-        setMessages(prev => [...prev, systemMessage]);
-      });
-
-      // Listen for WeChat messages
-      socketRef.current.on('wechat_message', (data) => {
-        console.log('[ChatBox] Received WeChat message:', data);
-
-        // Prevent duplicate processing
-        if (processingRef.current) {
-          console.warn('[ChatBox] Already processing, SKIPPING duplicate');
-          return;
-        }
-
-        processingRef.current = true;
-
-        // Add WeChat message as user message
-        const wechatMessage = {
-          role: 'user',
-          content: data.text,
-          timestamp: data.timestamp,
-          source: 'wechat'
-        };
-
-        setMessages(prev => [...prev, wechatMessage]);
-
-        // Process message after a small delay to ensure state is updated
-        setTimeout(() => {
-          setMessages(currentMessages => {
-            processWeChatMessage(data.text, [...currentMessages]);
-            return currentMessages;
-          });
-        }, 100);
-      });
-    } else {
-      console.log('[ChatBox] Reusing existing socket connection - ID:', socketRef.current.id);
-    }
-
-    return () => {
-      console.log('[ChatBox] Cleanup - removing listeners');
-      socketRef.current?.off('wechat_message');
-      socketRef.current?.off('load_context');
-      // Don't disconnect - keep connection alive for reuse
-    };
-  }, []); // Empty dependency array - only set up listener once
-
-  const processWeChatMessage = async (messageText, currentMessages) => {
-    // Use ref to get the current model selection (fixes closure issue in socket listeners)
+  const processWeChatMessage = useCallback(async (messageText, chatName) => {
     const currentModel = selectedModelRef.current;
-    console.log(`[processWeChatMessage] Starting processing for: ${messageText} with model: ${currentModel}`);
     setIsLoading(true);
-
     try {
-      console.log(`[processWeChatMessage] Sending to /api/chat with model: ${currentModel}`);
+      // Read current session messages at call time via a ref-based approach
       const response = await fetch('http://localhost:5001/api/chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: messageText,
-          model: currentModel,  // Use ref value instead of state
-          history: currentMessages,
-          send_to_wechat: false  // Don't send from backend, we'll send from frontend
+          model: currentModel,
+          history: [], // Backend has context from OCR; history sent separately if needed
+          send_to_wechat: true
         })
       });
-
       const data = await response.json();
-      console.log('[processWeChatMessage] Received AI response:', data.response);
-
-      if (data.success) {
-        const aiMessage = {
-          role: 'assistant',
-          content: data.response,
-          model: data.model || selectedModel,
-          timestamp: new Date().toLocaleTimeString()
-        };
-        setMessages(prev => [...prev, aiMessage]);
-
-        // Send AI response to WeChat - simplified for testing
-        try {
-          // Get current chat from backend
-          const chatResponse = await fetch('http://localhost:5001/api/wechat/current-chat');
-          const chatData = await chatResponse.json();
-
-          if (chatData.success && chatData.chat) {
-            const currentChat = chatData.chat;
-            console.log(`[processWeChatMessage] Sending AI response to WeChat chat: ${currentChat}`);
-            console.log(`[processWeChatMessage] Message to send: "${data.response}"`);
-
-            // Send message directly to WeChat without any filtering
-            const sendResponse = await fetch('http://localhost:5001/api/wechat/send', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                chat_name: currentChat,
-                message: data.response
-              })
-            });
-
-            const sendData = await sendResponse.json();
-
-            if (sendData.success) {
-              console.log('[processWeChatMessage] ✅ AI response sent to WeChat successfully');
-            } else {
-              console.warn('[processWeChatMessage] ⚠️ Failed to send AI response to WeChat:', sendData.error);
-            }
-          }
-        } catch (sendError) {
-          console.error('[processWeChatMessage] Error sending AI response to WeChat:', sendError);
-        }
-      } else {
-        const errorMessage = {
-          role: 'error',
-          content: `Error: ${data.error || 'Failed to get AI response'}`,
-          timestamp: new Date().toLocaleTimeString()
-        };
-        setMessages(prev => [...prev, errorMessage]);
-      }
+      const msg = data.success
+        ? { role: 'assistant', content: data.response, model: data.model || currentModel, timestamp: new Date().toLocaleTimeString() }
+        : { role: 'error', content: `Error: ${data.error || 'Failed to get AI response'}`, timestamp: new Date().toLocaleTimeString() };
+      dispatch({ type: ACTIONS.ADD_MESSAGE_TO_SESSION, payload: { chatName, message: msg } });
     } catch (error) {
-      console.error('Error processing WeChat message:', error);
-      const errorMessage = {
-        role: 'error',
-        content: `Error: ${error.message}`,
-        timestamp: new Date().toLocaleTimeString()
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      dispatch({ type: ACTIONS.ADD_MESSAGE_TO_SESSION, payload: { chatName, message: { role: 'error', content: `Error: ${error.message}`, timestamp: new Date().toLocaleTimeString() } } });
     } finally {
       setIsLoading(false);
-      processingRef.current = false; // Reset processing flag
+      processingRef.current = false;
     }
-  };
+  }, [dispatch]);
 
-  const loadInitialContext = async () => {
-    try {
-      // Fetch current messages from WeChat via OCR
-      const response = await fetch('http://localhost:5001/api/wechat/read?ocr=true');
-      const data = await response.json();
+  useEffect(() => {
+    if (socketRef.current?.connected) return;
 
-      if (data.success && data.messages && data.messages.length > 0) {
-        // Combine all messages into one text block
-        const contextText = data.messages
-          .filter(msg => msg.text && msg.text.trim())  // Only non-empty messages
-          .map(msg => `[${msg.timestamp}] ${msg.text}`)
-          .join('\n');
+    socketRef.current = io('http://localhost:5001', { reconnection: false, forceNew: true });
 
-        if (contextText) {
-          // Add as ONE user message with all context
-          const contextMessage = {
-            role: 'user',
-            content: `Here are the current messages from WeChat:\n\n${contextText}`,
-            timestamp: new Date().toLocaleTimeString(),
-            source: 'wechat_context'
-          };
+    socketRef.current.on('connect', () => console.log('[ChatBox] Socket connected'));
 
-          setMessages([contextMessage]);
-
-          // Add a system message indicating context was loaded
-          const systemMessage = {
-            role: 'assistant',
-            content: `Loaded ${data.messages.filter(msg => msg.text && msg.text.trim()).length} messages from WeChat as context. I'm ready to respond to new messages.`,
-            model: 'system',
-            timestamp: new Date().toLocaleTimeString()
-          };
-          setMessages(prev => [...prev, systemMessage]);
-        }
+    socketRef.current.on('current_chat_update', (data) => {
+      if (data.detected && data.chat) {
+        dispatch({ type: ACTIONS.ENSURE_CHAT_SESSION, payload: data.chat });
+        dispatch({ type: ACTIONS.SET_ACTIVE_CHAT, payload: data.chat });
       }
-    } catch (error) {
-      console.error('Error loading initial context:', error);
-    }
-  };
+    });
+
+    socketRef.current.on('load_context', (data) => {
+      const chatName = data.chat_name || activeChatRef.current || 'Unknown';
+      dispatch({ type: ACTIONS.SET_ACTIVE_CHAT, payload: chatName });
+      dispatch({
+        type: ACTIONS.REPLACE_SESSION_MESSAGES,
+        payload: {
+          chatName,
+          messages: [
+            { role: 'user', content: data.context, timestamp: new Date().toLocaleTimeString(), source: 'wechat_context' },
+            { role: 'assistant', content: `Loaded ${data.message_count} messages from WeChat as context.`, model: 'system', timestamp: new Date().toLocaleTimeString() }
+          ]
+        }
+      });
+    });
+
+    socketRef.current.on('wechat_message', (data) => {
+      if (processingRef.current) return;
+      processingRef.current = true;
+
+      const chatName = data.chat_name || activeChatRef.current || 'Unknown';
+      dispatch({ type: ACTIONS.ENSURE_CHAT_SESSION, payload: chatName });
+      dispatch({ type: ACTIONS.SET_ACTIVE_CHAT, payload: chatName });
+      dispatch({
+        type: ACTIONS.ADD_MESSAGE_TO_SESSION,
+        payload: { chatName, message: { role: 'user', content: data.text, timestamp: data.timestamp, source: 'wechat' } }
+      });
+
+      setTimeout(() => processWeChatMessage(data.text, chatName), 100);
+    });
+
+    return () => {
+      socketRef.current?.off('wechat_message');
+      socketRef.current?.off('load_context');
+      socketRef.current?.off('current_chat_update');
+    };
+  }, [dispatch, processWeChatMessage]);
 
   const sendMessage = async () => {
-    if (!input.trim() || isLoading) return;
-
-    const userMessage = {
-      role: 'user',
-      content: input,
-      timestamp: new Date().toLocaleTimeString()
-    };
-
-    setMessages(prev => [...prev, userMessage]);
+    if (!input.trim() || isLoading || !activeChat) return;
+    const userMessage = { role: 'user', content: input, timestamp: new Date().toLocaleTimeString() };
+    dispatch({ type: ACTIONS.ADD_MESSAGE_TO_SESSION, payload: { chatName: activeChat, message: userMessage } });
+    const msgText = input;
     setInput('');
     setIsLoading(true);
 
     try {
       const response = await fetch('http://localhost:5001/api/chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: input,
-          model: selectedModel,
-          history: messages
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msgText, model: selectedModel, history: [...messages, userMessage] })
       });
-
       const data = await response.json();
-
-      if (data.success) {
-        const aiMessage = {
-          role: 'assistant',
-          content: data.response,
-          model: selectedModel,
-          timestamp: new Date().toLocaleTimeString()
-        };
-        setMessages(prev => [...prev, aiMessage]);
-      } else {
-        const errorMessage = {
-          role: 'error',
-          content: `Error: ${data.error}`,
-          timestamp: new Date().toLocaleTimeString()
-        };
-        setMessages(prev => [...prev, errorMessage]);
-      }
+      const msg = data.success
+        ? { role: 'assistant', content: data.response, model: selectedModel, timestamp: new Date().toLocaleTimeString() }
+        : { role: 'error', content: `Error: ${data.error}`, timestamp: new Date().toLocaleTimeString() };
+      dispatch({ type: ACTIONS.ADD_MESSAGE_TO_SESSION, payload: { chatName: activeChat, message: msg } });
     } catch (error) {
-      const errorMessage = {
-        role: 'error',
-        content: `Failed to connect: ${error.message}`,
-        timestamp: new Date().toLocaleTimeString()
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      dispatch({ type: ACTIONS.ADD_MESSAGE_TO_SESSION, payload: { chatName: activeChat, message: { role: 'error', content: `Failed to connect: ${error.message}`, timestamp: new Date().toLocaleTimeString() } } });
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
 
   const clearChat = () => {
-    setMessages([]);
+    if (!activeChat) return;
+    dispatch({ type: ACTIONS.REPLACE_SESSION_MESSAGES, payload: { chatName: activeChat, messages: [] } });
   };
+
+  const chatNames = Object.keys(chatSessions);
 
   return (
     <div className="chatbox-container">
       <div className="chatbox-header">
         <h3 className="chatbox-title">AI Chat</h3>
         <div className="chatbox-controls">
-          <select
-            className="model-selector"
-            value={selectedModel}
-            onChange={(e) => setSelectedModel(e.target.value)}
-          >
-            <option value="claude">Claude</option>
+          <select className="model-selector" value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)}>
             <option value="zypher">Zypher</option>
             <option value="openclaw">OpenClaw</option>
           </select>
-          <button className="clear-chat-btn" onClick={loadInitialContext}>
-            📥 Load Context
-          </button>
-          <button className="clear-chat-btn" onClick={clearChat}>
-            🗑️ Clear
-          </button>
+          <button className="clear-chat-btn" onClick={clearChat}>🗑️ Clear</button>
         </div>
       </div>
+
+      {chatNames.length > 0 && (
+        <div className="chat-tabs">
+          {chatNames.map(name => (
+            <button key={name} className={`chat-tab ${name === activeChat ? 'chat-tab-active' : ''}`}
+              onClick={() => dispatch({ type: ACTIONS.SET_ACTIVE_CHAT, payload: name })}>
+              {name}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="chatbox-messages">
         {messages.length === 0 ? (
           <div className="empty-state">
-            <p>👋 Start a conversation with {selectedModel === 'claude' ? 'Claude' : selectedModel === 'zypher' ? 'Zypher' : 'OpenClaw'}</p>
+            <p>{activeChat ? `No messages in ${activeChat}` : 'Select a chat to begin'}</p>
           </div>
         ) : (
           messages.map((msg, index) => (
@@ -344,32 +182,17 @@ const ChatBox = () => {
         )}
         {isLoading && (
           <div className="message message-assistant">
-            <div className="message-header">
-              <span className="message-role">🤖 {selectedModel}</span>
-            </div>
-            <div className="message-content typing-indicator">
-              <span></span><span></span><span></span>
-            </div>
+            <div className="message-header"><span className="message-role">🤖 {selectedModel}</span></div>
+            <div className="message-content typing-indicator"><span></span><span></span><span></span></div>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
       <div className="chatbox-input-container">
-        <textarea
-          className="chatbox-input"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyPress={handleKeyPress}
-          placeholder={`Ask ${selectedModel === 'claude' ? 'Claude' : selectedModel === 'zypher' ? 'Zypher' : 'OpenClaw'} anything...`}
-          rows="3"
-          disabled={isLoading}
-        />
-        <button
-          className="chatbox-send-btn"
-          onClick={sendMessage}
-          disabled={isLoading || !input.trim()}
-        >
+        <textarea className="chatbox-input" value={input} onChange={(e) => setInput(e.target.value)} onKeyPress={handleKeyPress}
+          placeholder={activeChat ? `Message ${activeChat}...` : 'Select a chat...'} rows="3" disabled={isLoading} />
+        <button className="chatbox-send-btn" onClick={sendMessage} disabled={isLoading || !input.trim()}>
           {isLoading ? '⏳' : '📤'} Send
         </button>
       </div>
