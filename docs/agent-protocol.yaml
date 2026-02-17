@@ -1,0 +1,171 @@
+openapi: "3.0.3"
+info:
+  title: RealChat Universal Agent Protocol
+  version: "1.0.0"
+  description: |
+    Standard protocol for connecting any LLM/agent to WeChat through the RealChat bridge.
+    Any agent implementing these endpoints can register with the gateway and communicate
+    with WeChat users automatically.
+
+    ## Quick Start
+    1. Implement POST /api/chat and GET /health
+    2. Register with the gateway: POST http://gateway:5001/api/agents/register
+    3. Your agent is now connected to WeChat
+
+servers:
+  - url: http://localhost:{port}
+    description: Agent service
+    variables:
+      port:
+        default: "9000"
+
+paths:
+  /api/chat:
+    post:
+      summary: Process a chat message
+      description: |
+        The gateway sends incoming WeChat messages to this endpoint.
+        The agent processes the message and returns a response.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatRequest"
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatResponse"
+        "400":
+          description: Bad request
+        "500":
+          description: Agent error
+
+  /health:
+    get:
+      summary: Health check
+      description: Returns agent health status. Called periodically by the gateway.
+      responses:
+        "200":
+          description: Agent is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+components:
+  schemas:
+    ChatRequest:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: The user's message from WeChat
+        history:
+          type: array
+          description: Conversation history
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+                enum: [user, assistant]
+              content:
+                type: string
+        context:
+          type: object
+          description: Additional context (sender info, chat name, etc.)
+          properties:
+            sender:
+              type: string
+            chat:
+              type: string
+            send_to_wechat:
+              type: boolean
+        model:
+          type: string
+          description: Preferred model (agent can ignore)
+        max_tokens:
+          type: integer
+          description: Max response tokens (agent can ignore)
+
+    ChatResponse:
+      type: object
+      required:
+        - success
+        - response
+      properties:
+        success:
+          type: boolean
+        response:
+          type: string
+          description: "Agent response text. Should include agent prefix (e.g. [MyAgent])"
+        model:
+          type: string
+          description: Model/agent name used
+        agent:
+          type: string
+          description: Agent identifier
+
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - service
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, error]
+        service:
+          type: string
+          description: Agent name
+        version:
+          type: string
+        uptime:
+          type: number
+          description: Uptime in seconds
+
+    AgentRegistration:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Unique agent identifier (lowercase)
+        url:
+          type: string
+          description: "Agent base URL (e.g. http://localhost:9000)"
+        port:
+          type: integer
+          description: Agent port (used to construct URL if url not provided)
+        description:
+          type: string
+        prefix:
+          type: string
+          description: "Message prefix (e.g. [MyAgent])"
+        capabilities:
+          type: object
+          properties:
+            streaming:
+              type: boolean
+            conversation_history:
+              type: boolean
+            length_matching:
+              type: boolean
+            multi_language:
+              type: boolean
+        health_endpoint:
+          type: string
+          default: /health
+        chat_endpoint:
+          type: string
+          default: /api/chat
+        webhook_url:
+          type: string
+          description: Optional callback URL for push-based messaging

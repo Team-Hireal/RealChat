@@ -16,10 +16,14 @@ export const ACTIONS = {
   ENSURE_CHAT_SESSION: 'ENSURE_CHAT_SESSION',
   ADD_MESSAGE_TO_SESSION: 'ADD_MESSAGE_TO_SESSION',
   REPLACE_SESSION_MESSAGES: 'REPLACE_SESSION_MESSAGES',
+  SET_MODE: 'SET_MODE',
 };
 
 // Initial state
 export const initialState = {
+  mode: typeof window !== 'undefined'
+    ? (localStorage.getItem('realchat_mode') || 'consumer')
+    : 'consumer',
   botStatus: {
     running: false,
     pid: null,
@@ -56,6 +60,13 @@ export const initialState = {
 // Reducer
 export const appReducer = (state, action) => {
   switch (action.type) {
+    case ACTIONS.SET_MODE:
+      localStorage.setItem('realchat_mode', action.payload);
+      return {
+        ...state,
+        mode: action.payload,
+      };
+
     case ACTIONS.SET_BOT_STATUS:
       return {
         ...state,

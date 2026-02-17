@@ -8,7 +8,8 @@ import './Sidebar.css';
 
 const Sidebar = () => {
   const { state, dispatch } = useAppContext();
-  const { chatSessions, activeChat } = state;
+  const { chatSessions, activeChat, mode } = state;
+  const isDev = mode === 'developer';
   const [agentRunning, setAgentRunning] = useState(false);
   const [chatName, setChatName] = useState('File');
   const [windowInfo, setWindowInfo] = useState(null);
@@ -273,193 +274,216 @@ const Sidebar = () => {
         </div>
       )}
 
-      {/* AI Settings */}
-      <AISettings />
+      {/* AI Settings — developer only */}
+      {isDev && <AISettings />}
 
-      {/* WeChat Window */}
-      <div className="section">
-        <h3 className="section-title">WeChat Window</h3>
-        <div className="info-card">
-          {windowInfo && windowInfo.window ? (
-            <>
-              <div className="info-item">
-                <span className="info-label">Title:</span>
-                <span className="info-value">{windowInfo.window.title || 'WeChat'}</span>
-              </div>
-              <div className="info-item">
-                <span className="info-label">Size:</span>
-                <span className="info-value">
-                  {windowInfo.window.width}x{windowInfo.window.height}
-                </span>
-              </div>
-              <div className="info-item">
-                <span className="info-label">Active:</span>
-                <span className="info-value">
-                  {windowInfo.window.is_frontmost ? '✓ Yes' : '✗ No'}
-                </span>
-              </div>
-              {windowInfo.cursor && (
+      {/* WeChat Window — developer only */}
+      {isDev && (
+        <div className="section">
+          <h3 className="section-title">WeChat Window</h3>
+          <div className="info-card">
+            {windowInfo && windowInfo.window ? (
+              <>
                 <div className="info-item">
-                  <span className="info-label">Cursor Pos:</span>
-                  <span className="info-value cursor-pos">
-                    ({windowInfo.cursor.x}, {windowInfo.cursor.y})
+                  <span className="info-label">Title:</span>
+                  <span className="info-value">{windowInfo.window.title || 'WeChat'}</span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">Size:</span>
+                  <span className="info-value">
+                    {windowInfo.window.width}x{windowInfo.window.height}
                   </span>
                 </div>
-              )}
-              {windowInfo.window_under_cursor && (
                 <div className="info-item">
-                  <span className="info-label">Window Under:</span>
-                  <span className={`info-value ${windowInfo.window_under_cursor.process_name === 'WeChat' ? 'success' : 'error'}`}>
-                    {windowInfo.window_under_cursor.process_name}
+                  <span className="info-label">Active:</span>
+                  <span className="info-value">
+                    {windowInfo.window.is_frontmost ? '✓ Yes' : '✗ No'}
                   </span>
                 </div>
-              )}
+                {windowInfo.cursor && (
+                  <div className="info-item">
+                    <span className="info-label">Cursor Pos:</span>
+                    <span className="info-value cursor-pos">
+                      ({windowInfo.cursor.x}, {windowInfo.cursor.y})
+                    </span>
+                  </div>
+                )}
+                {windowInfo.window_under_cursor && (
+                  <div className="info-item">
+                    <span className="info-label">Window Under:</span>
+                    <span className={`info-value ${windowInfo.window_under_cursor.process_name === 'WeChat' ? 'success' : 'error'}`}>
+                      {windowInfo.window_under_cursor.process_name}
+                    </span>
+                  </div>
+                )}
+                <div className="info-item">
+                  <span className="info-label">Cursor:</span>
+                  <span className="info-value">
+                    {windowInfo.cursor_in_window ? '✓ In Window' : '✗ Outside'}
+                  </span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">Focus:</span>
+                  <span className={`info-value ${windowInfo.is_focused ? 'success' : 'error'}`}>
+                    {windowInfo.is_focused ? '✓ Focused' : '✗ Not Focused'}
+                  </span>
+                </div>
+              </>
+            ) : (
               <div className="info-item">
-                <span className="info-label">Cursor:</span>
-                <span className="info-value">
-                  {windowInfo.cursor_in_window ? '✓ In Window' : '✗ Outside'}
-                </span>
+                <span className="info-label">Status:</span>
+                <span className="info-value">Loading...</span>
               </div>
-              <div className="info-item">
-                <span className="info-label">Focus:</span>
-                <span className={`info-value ${windowInfo.is_focused ? 'success' : 'error'}`}>
-                  {windowInfo.is_focused ? '✓ Focused' : '✗ Not Focused'}
-                </span>
-              </div>
-            </>
-          ) : (
-            <div className="info-item">
-              <span className="info-label">Status:</span>
-              <span className="info-value">Loading...</span>
-            </div>
-          )}
+            )}
+          </div>
+          <button className="btn btn-secondary" onClick={refreshWindow}>
+            🔄 Refresh
+          </button>
         </div>
-        <button className="btn btn-secondary" onClick={refreshWindow}>
-          🔄 Refresh
-        </button>
-      </div>
+      )}
 
-      {/* Quick Actions */}
-      <div className="section">
-        <h3 className="section-title">Quick Actions</h3>
-        <button className="btn btn-secondary" onClick={openChatTest}>
-          📂 Open Chat
-        </button>
-        <button className="btn btn-secondary" onClick={readMessages}>
-          📥 Read Messages
-        </button>
-        <button className="btn btn-primary" onClick={testOCR}>
-          🔍 Test OCR Reading
-        </button>
-      </div>
+      {/* Quick Actions — developer only */}
+      {isDev && (
+        <div className="section">
+          <h3 className="section-title">Quick Actions</h3>
+          <button className="btn btn-secondary" onClick={openChatTest}>
+            📂 Open Chat
+          </button>
+          <button className="btn btn-secondary" onClick={readMessages}>
+            📥 Read Messages
+          </button>
+          <button className="btn btn-primary" onClick={testOCR}>
+            🔍 Test OCR Reading
+          </button>
+        </div>
+      )}
 
-      {/* Backend Configuration */}
-      <div className="section">
-        <h3 className="section-title">Backend Configuration</h3>
-        <div className="input-group">
-          <label className="input-label">AI Model</label>
-          <select
-            className="input"
-            value={backendConfig.ai_model}
-            onChange={(e) => updateBackendConfig({ ai_model: e.target.value })}
-          >
-            <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5</option>
-            <option value="claude-opus-4-5-20251101">Claude Opus 4.5</option>
-            <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
-            <option value="claude-3-opus-20240229">Claude 3 Opus</option>
-          </select>
-        </div>
-        <div className="input-group">
-          <label className="input-label">Scan Method</label>
-          <select
-            className="input"
-            value={backendConfig.scan_method}
-            onChange={(e) => updateBackendConfig({ scan_method: e.target.value })}
-          >
-            <option value="applescript">AppleScript</option>
-            <option value="ocr">OCR</option>
-            <option value="manual">Manual</option>
-          </select>
-        </div>
-        <div className="input-group">
-          <label className="input-label">Max Tokens</label>
-          <input
-            type="number"
-            className="input"
-            value={backendConfig.ai_max_tokens}
-            onChange={(e) => updateBackendConfig({ ai_max_tokens: parseInt(e.target.value) })}
-            min="256"
-            max="8192"
-            step="256"
-          />
-        </div>
-        <div className="toggle-group">
-          <label className="toggle-label">
+      {/* Backend Configuration — developer only */}
+      {isDev && (
+        <div className="section">
+          <h3 className="section-title">Backend Configuration</h3>
+          <div className="input-group">
+            <label className="input-label">AI Model</label>
+            <select
+              className="input"
+              value={backendConfig.ai_model}
+              onChange={(e) => updateBackendConfig({ ai_model: e.target.value })}
+            >
+              <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5</option>
+              <option value="claude-opus-4-5-20251101">Claude Opus 4.5</option>
+              <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+              <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+            </select>
+          </div>
+          <div className="input-group">
+            <label className="input-label">Scan Method</label>
+            <select
+              className="input"
+              value={backendConfig.scan_method}
+              onChange={(e) => updateBackendConfig({ scan_method: e.target.value })}
+            >
+              <option value="applescript">AppleScript</option>
+              <option value="ocr">OCR</option>
+              <option value="manual">Manual</option>
+            </select>
+          </div>
+          <div className="input-group">
+            <label className="input-label">Max Tokens</label>
             <input
-              type="checkbox"
-              checked={backendConfig.auto_detect_messages || false}
-              onChange={(e) => updateBackendConfig({ auto_detect_messages: e.target.checked })}
+              type="number"
+              className="input"
+              value={backendConfig.ai_max_tokens}
+              onChange={(e) => updateBackendConfig({ ai_max_tokens: parseInt(e.target.value) })}
+              min="256"
+              max="8192"
+              step="256"
             />
-            <span className="toggle-text">Auto-Detect New Messages</span>
-          </label>
-          <small className="input-hint">
-            💡 Automatically run OCR when new messages arrive
-          </small>
+          </div>
+          <div className="toggle-group">
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={backendConfig.auto_detect_messages || false}
+                onChange={(e) => updateBackendConfig({ auto_detect_messages: e.target.checked })}
+              />
+              <span className="toggle-text">Auto-Detect New Messages</span>
+            </label>
+            <small className="input-hint">
+              💡 Automatically run OCR when new messages arrive
+            </small>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Automation */}
-      <div className="section">
-        <h3 className="section-title">Automation</h3>
-        <div className="toggle-group">
-          <label className="toggle-label">
-            <input
-              type="checkbox"
-              checked={automation.auto_reply}
-              onChange={(e) => setAutomation({...automation, auto_reply: e.target.checked})}
-            />
-            <span className="toggle-text">Auto Reply</span>
-          </label>
+      {/* Automation — developer only */}
+      {isDev && (
+        <div className="section">
+          <h3 className="section-title">Automation</h3>
+          <div className="toggle-group">
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={automation.auto_reply}
+                onChange={(e) => setAutomation({...automation, auto_reply: e.target.checked})}
+              />
+              <span className="toggle-text">Auto Reply</span>
+            </label>
+          </div>
+          <div className="toggle-group">
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={automation.auto_forward}
+                onChange={(e) => setAutomation({...automation, auto_forward: e.target.checked})}
+              />
+              <span className="toggle-text">Auto Forward</span>
+            </label>
+          </div>
+          <div className="toggle-group">
+            <label className="toggle-label">
+              <input
+                type="checkbox"
+                checked={automation.command_mode}
+                onChange={(e) => setAutomation({...automation, command_mode: e.target.checked})}
+              />
+              <span className="toggle-text">Command Mode</span>
+            </label>
+          </div>
         </div>
-        <div className="toggle-group">
-          <label className="toggle-label">
-            <input
-              type="checkbox"
-              checked={automation.auto_forward}
-              onChange={(e) => setAutomation({...automation, auto_forward: e.target.checked})}
-            />
-            <span className="toggle-text">Auto Forward</span>
-          </label>
-        </div>
-        <div className="toggle-group">
-          <label className="toggle-label">
-            <input
-              type="checkbox"
-              checked={automation.command_mode}
-              onChange={(e) => setAutomation({...automation, command_mode: e.target.checked})}
-            />
-            <span className="toggle-text">Command Mode</span>
-          </label>
-        </div>
-      </div>
+      )}
 
-      {/* Agent Control */}
+      {/* Agent Control — simplified in consumer mode */}
       <div className="section">
-        <h3 className="section-title">Agent Control</h3>
-        <button
-          className="btn btn-primary"
-          onClick={startAgent}
-          disabled={agentRunning}
-        >
-          ▶️ Start Agent
-        </button>
-        <button
-          className="btn btn-danger"
-          onClick={stopAgent}
-          disabled={!agentRunning}
-        >
-          ⏹️ Stop Agent
-        </button>
+        <h3 className="section-title">{isDev ? 'Agent Control' : 'AI Agent'}</h3>
+        {isDev ? (
+          <>
+            <button
+              className="btn btn-primary"
+              onClick={startAgent}
+              disabled={agentRunning}
+            >
+              ▶️ Start Agent
+            </button>
+            <button
+              className="btn btn-danger"
+              onClick={stopAgent}
+              disabled={!agentRunning}
+            >
+              ⏹️ Stop Agent
+            </button>
+          </>
+        ) : (
+          <div className="toggle-group">
+            <label className="toggle-label agent-toggle">
+              <input
+                type="checkbox"
+                checked={agentRunning}
+                onChange={(e) => e.target.checked ? startAgent() : stopAgent()}
+              />
+              <span className="toggle-text">{agentRunning ? 'Agent Active' : 'Agent Off'}</span>
+            </label>
+          </div>
+        )}
       </div>
 
       {/* Target Chat */}
@@ -473,9 +497,11 @@ const Sidebar = () => {
             onChange={(e) => setChatName(e.target.value)}
             placeholder="Enter chat name..."
           />
-          <small className="input-hint">
-            💡 Use "File" to find "File Transfer"
-          </small>
+          {isDev && (
+            <small className="input-hint">
+              💡 Use "File" to find "File Transfer"
+            </small>
+          )}
         </div>
         <button className="btn btn-secondary" onClick={searchChat}>
           🔍 Search Chat

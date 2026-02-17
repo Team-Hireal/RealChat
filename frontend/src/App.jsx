@@ -29,7 +29,7 @@ function AppContent() {
     }
 
     // Connect to Socket.IO for real-time updates
-    const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5001';
+    const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5050';
     const socket = io(SOCKET_URL);
 
     socket.on('connect', () => {

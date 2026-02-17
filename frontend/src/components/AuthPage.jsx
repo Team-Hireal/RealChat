@@ -22,7 +22,10 @@ export default function AuthPage() {
         await signup(email, password, name);
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'Something went wrong');
+      console.error('[AuthPage] handleSubmit error:', err);
+      const msg = err.response?.data?.error || err.message || 'Something went wrong';
+      console.error('[AuthPage] Setting error message:', msg);
+      setError(msg);
     } finally {
       setLoading(false);
     }

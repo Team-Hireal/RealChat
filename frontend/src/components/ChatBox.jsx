@@ -6,7 +6,8 @@ import './ChatBox.css';
 
 const ChatBox = () => {
   const { state, dispatch } = useAppContext();
-  const { chatSessions, activeChat } = state;
+  const { chatSessions, activeChat, mode } = state;
+  const isDev = mode === 'developer';
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState('zypher');
@@ -27,7 +28,7 @@ const ChatBox = () => {
     setIsLoading(true);
     try {
       // Read current session messages at call time via a ref-based approach
-      const response = await fetch('http://localhost:5001/api/chat', {
+      const response = await fetch('http://localhost:5050/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -53,7 +54,7 @@ const ChatBox = () => {
   useEffect(() => {
     if (socketRef.current?.connected) return;
 
-    socketRef.current = io('http://localhost:5001', { reconnection: false, forceNew: true });
+    socketRef.current = io('http://localhost:5050', { reconnection: false, forceNew: true });
 
     socketRef.current.on('connect', () => console.log('[ChatBox] Socket connected'));
 
@@ -110,7 +111,7 @@ const ChatBox = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5001/api/chat', {
+      const response = await fetch('http://localhost:5050/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: msgText, model: selectedModel, history: [...messages, userMessage] })
@@ -143,10 +144,12 @@ const ChatBox = () => {
       <div className="chatbox-header">
         <h3 className="chatbox-title">AI Chat</h3>
         <div className="chatbox-controls">
-          <select className="model-selector" value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)}>
-            <option value="zypher">Zypher</option>
-            <option value="openclaw">OpenClaw</option>
-          </select>
+          {isDev && (
+            <select className="model-selector" value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)}>
+              <option value="zypher">Zypher</option>
+              <option value="openclaw">OpenClaw</option>
+            </select>
+          )}
           <button className="clear-chat-btn" onClick={clearChat}>🗑️ Clear</button>
         </div>
       </div>

@@ -28,7 +28,7 @@ const RealChat = () => {
 
   // Initialize socket connection
   useEffect(() => {
-    socketRef.current = io('http://localhost:5001');
+    socketRef.current = io('http://localhost:5050');
 
     socketRef.current.on('connect', () => {
       addLog('Connected to server', 'success');
@@ -92,7 +92,7 @@ const RealChat = () => {
       };
       if (body) options.body = JSON.stringify(body);
 
-      const response = await fetch(`http://localhost:5001${endpoint}`, options);
+      const response = await fetch(`http://localhost:5050${endpoint}`, options);
       const data = await response.json();
       return data;
     } catch (error) {

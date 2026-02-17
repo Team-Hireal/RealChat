@@ -16,6 +16,12 @@
   margin-bottom: 30px;
 }
 
+.chatbox-section.chatbox-full {
+  flex: 1;
+  height: auto;
+  margin-bottom: 0;
+}
+
 
 .section-title {
   font-size: 14px;

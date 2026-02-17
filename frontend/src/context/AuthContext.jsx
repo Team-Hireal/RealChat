@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import api, { setAuthToken } from '../services/api';
+import { axiosInstance as api, setAuthToken } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -26,23 +26,51 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback(async (email, password) => {
-    const res = await api.post('/auth/login', { email, password });
-    const { user: u, access_token, refresh_token } = res.data;
-    localStorage.setItem('access_token', access_token);
-    localStorage.setItem('refresh_token', refresh_token);
-    setAuthToken(access_token);
-    setUser(u);
-    return u;
+    console.log('[Auth] login called with:', { email });
+    console.log('[Auth] API baseURL:', api.defaults.baseURL);
+    try {
+      const res = await api.post('/auth/login', { email, password });
+      console.log('[Auth] login response:', res.status, res.data);
+      const { user: u, access_token, refresh_token } = res.data;
+      localStorage.setItem('access_token', access_token);
+      localStorage.setItem('refresh_token', refresh_token);
+      setAuthToken(access_token);
+      setUser(u);
+      return u;
+    } catch (err) {
+      console.error('[Auth] login error:', {
+        message: err.message,
+        code: err.code,
+        status: err.response?.status,
+        data: err.response?.data,
+        config: { url: err.config?.url, baseURL: err.config?.baseURL, method: err.config?.method },
+      });
+      throw err;
+    }
   }, []);
 
   const signup = useCallback(async (email, password, name) => {
-    const res = await api.post('/auth/signup', { email, password, name });
-    const { user: u, access_token, refresh_token } = res.data;
-    localStorage.setItem('access_token', access_token);
-    localStorage.setItem('refresh_token', refresh_token);
-    setAuthToken(access_token);
-    setUser(u);
-    return u;
+    console.log('[Auth] signup called with:', { email, name, passwordLength: password.length });
+    console.log('[Auth] API baseURL:', api.defaults.baseURL);
+    try {
+      const res = await api.post('/auth/signup', { email, password, name });
+      console.log('[Auth] signup response:', res.status, res.data);
+      const { user: u, access_token, refresh_token } = res.data;
+      localStorage.setItem('access_token', access_token);
+      localStorage.setItem('refresh_token', refresh_token);
+      setAuthToken(access_token);
+      setUser(u);
+      return u;
+    } catch (err) {
+      console.error('[Auth] signup error:', {
+        message: err.message,
+        code: err.code,
+        status: err.response?.status,
+        data: err.response?.data,
+        config: { url: err.config?.url, baseURL: err.config?.baseURL, method: err.config?.method },
+      });
+      throw err;
+    }
   }, []);
 
   const logout = useCallback(() => {

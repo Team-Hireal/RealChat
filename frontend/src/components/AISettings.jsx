@@ -23,7 +23,7 @@ const AISettings = () => {
 
   const loadSettings = async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/ai-settings');
+      const response = await fetch('http://localhost:5050/api/ai-settings');
       const data = await response.json();
       if (data.success) {
         setSettings(data.settings);
@@ -45,7 +45,7 @@ const AISettings = () => {
     setMessage({ text: '', type: '' });
 
     try {
-      const response = await fetch('http://localhost:5001/api/ai-settings', {
+      const response = await fetch('http://localhost:5050/api/ai-settings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

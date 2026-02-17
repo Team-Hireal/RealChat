@@ -6,6 +6,8 @@ import './MainPanel.css';
 
 const MainPanel = () => {
   const { state, dispatch } = useAppContext();
+  const { mode } = state;
+  const isDev = mode === 'developer';
   const [hasLogged, setHasLogged] = useState(false);
 
   useEffect(() => {
@@ -34,36 +36,38 @@ const MainPanel = () => {
   return (
     <div className="main-panel">
       {/* AI ChatBox */}
-      <div className="section chatbox-section">
+      <div className={`section chatbox-section${!isDev ? ' chatbox-full' : ''}`}>
         <ChatBox />
       </div>
 
-      {/* Activity Log */}
-      <div className="section">
-        <div className="log-header">
-          <h3 className="section-title">Activity Log</h3>
-          <button className="clear-btn" onClick={clearLogs}>
-            🗑️ Clear Logs
-          </button>
-        </div>
-        <div className="logs-container">
-          {!state.logs || state.logs.length === 0 ? (
-            <div className="log-entry log-info">
-              <span className="log-time">{new Date().toLocaleTimeString()}</span>
-              No logs yet
-            </div>
-          ) : (
-            state.logs.map((log, index) => (
-              <div key={index} className={`log-entry log-${log.type}`}>
-                <span className="log-time">
-                  {log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString()}
-                </span>
-                {log.message}
+      {/* Activity Log — developer only */}
+      {isDev && (
+        <div className="section">
+          <div className="log-header">
+            <h3 className="section-title">Activity Log</h3>
+            <button className="clear-btn" onClick={clearLogs}>
+              🗑️ Clear Logs
+            </button>
+          </div>
+          <div className="logs-container">
+            {!state.logs || state.logs.length === 0 ? (
+              <div className="log-entry log-info">
+                <span className="log-time">{new Date().toLocaleTimeString()}</span>
+                No logs yet
               </div>
-            ))
-          )}
+            ) : (
+              state.logs.map((log, index) => (
+                <div key={index} className={`log-entry log-${log.type}`}>
+                  <span className="log-time">
+                    {log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString()}
+                  </span>
+                  {log.message}
+                </div>
+              ))
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

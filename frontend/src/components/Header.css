@@ -141,3 +141,56 @@
   border-color: #ef4444;
   color: #f87171;
 }
+
+/* Header actions group */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Consumer mode simple status */
+.consumer-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+}
+
+.consumer-status-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Mode toggle pill */
+.mode-toggle {
+  padding: 5px 12px;
+  border-radius: 16px;
+  border: 1px solid var(--glass-border);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  white-space: nowrap;
+}
+
+.mode-consumer {
+  background: var(--glass-bg);
+  color: var(--text-secondary);
+}
+
+.mode-dev {
+  background: rgba(7, 193, 96, 0.12);
+  color: #07C160;
+  border-color: rgba(7, 193, 96, 0.3);
+}
+
+.mode-toggle:hover {
+  transform: scale(1.05);
+  border-color: var(--wechat-green);
+}
