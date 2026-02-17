@@ -1,62 +1,96 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 import apiService from '../services/api';
 import './Header.css';
+
+const SERVICES = [
+  { key: 'backend',  label: 'Backend',  port: 5001 },
+  { key: 'frontend', label: 'Frontend', port: 5173 },
+  { key: 'zypher',   label: 'Zypher',   port: 8000 },
+  { key: 'bridge',   label: 'Bridge',   port: 8080 },
+];
 
 const Header = () => {
   const { state } = useAppContext();
   const { theme, toggleTheme } = useTheme();
-  const [backendRunning, setBackendRunning] = useState(false);
-  const [wechatOnline, setWechatOnline] = useState(false);
-  const [agentRunning, setAgentRunning] = useState(false);
+  const { user, logout } = useAuth();
+  const [serviceStatus, setServiceStatus] = useState({});
+  const [restarting, setRestarting] = useState({});
+
+  const checkServices = useCallback(async () => {
+    try {
+      const res = await apiService.getServicesStatus();
+      if (res.data) setServiceStatus(res.data);
+    } catch {
+      // Backend itself is down
+      setServiceStatus(prev => ({ ...prev, backend: false }));
+    }
+  }, []);
 
   useEffect(() => {
-    const checkStatus = async () => {
-      try {
-        const response = await apiService.getStatus();
-        if (response.data) {
-          setBackendRunning(true);
-          setWechatOnline(response.data.wechat_running || false);
-          setAgentRunning(response.data.agent_running || false);
-        }
-      } catch (error) {
-        setBackendRunning(false);
-      }
-    };
-
-    checkStatus();
-    const interval = setInterval(checkStatus, 2000);
+    checkServices();
+    const interval = setInterval(checkServices, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [checkServices]);
+
+  const handleRestart = async (serviceName) => {
+    setRestarting(prev => ({ ...prev, [serviceName]: true }));
+    try {
+      await apiService.restartService(serviceName);
+    } catch {
+      // Backend may have restarted itself
+    }
+    // Poll until service comes back (or timeout)
+    setTimeout(() => {
+      checkServices();
+      setRestarting(prev => ({ ...prev, [serviceName]: false }));
+    }, serviceName === 'backend' ? 4000 : 2000);
+  };
 
   return (
     <header className="header">
       <div className="logo">
-        <span className="logo-icon">🤖</span>
-        <h1>RealChat Control Panel</h1>
+        <img src="/realchat-icon.svg" alt="RealChat" className="logo-icon" />
+        <h1>RealChat</h1>
       </div>
-      <div className="status-badges">
-        <div className={`badge ${backendRunning ? 'online' : 'offline'}`}>
-          <span className="status-dot"></span>
-          <span>Backend: {backendRunning ? 'Running' : 'Stopped'}</span>
-        </div>
-        <div className={`badge ${wechatOnline ? 'online' : 'offline'}`}>
-          <span className="status-dot"></span>
-          <span>WeChat: {wechatOnline ? 'Online' : 'Offline'}</span>
-        </div>
-        <div className={`badge ${agentRunning ? 'online' : 'offline'}`}>
-          <span className="status-dot"></span>
-          <span>Agent: {agentRunning ? 'Running' : 'Stopped'}</span>
-        </div>
-        <button
-          className="theme-toggle"
-          onClick={toggleTheme}
-          aria-label="Toggle theme"
-        >
-          {theme === 'light' ? '🌙' : '☀️'}
+
+      <div className="service-controls">
+        {SERVICES.map(svc => {
+          const alive = serviceStatus[svc.key];
+          const spinning = restarting[svc.key];
+          return (
+            <div key={svc.key} className="service-chip">
+              <span className={`svc-dot ${alive ? 'on' : 'off'}`} />
+              <span className="svc-label">{svc.label}</span>
+              <button
+                className={`svc-restart${spinning ? ' spinning' : ''}`}
+                onClick={() => handleRestart(svc.key)}
+                disabled={spinning}
+                title={`Restart ${svc.label}`}
+                aria-label={`Restart ${svc.label}`}
+              >
+                &#x21bb;
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      <button
+        className="theme-toggle"
+        onClick={toggleTheme}
+        aria-label="Toggle theme"
+      >
+        {theme === 'light' ? '\u{1F319}' : '\u{2600}\u{FE0F}'}
+      </button>
+
+      {user && (
+        <button className="logout-btn" onClick={logout} title={user.email}>
+          Sign Out
         </button>
-      </div>
+      )}
     </header>
   );
 };

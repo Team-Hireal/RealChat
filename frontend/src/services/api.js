@@ -9,6 +9,50 @@ const api = axios.create({
   },
 });
 
+// ── Auth token management ──
+
+export function setAuthToken(token) {
+  if (token) {
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  } else {
+    delete api.defaults.headers.common['Authorization'];
+  }
+}
+
+// Restore token from storage on module load
+const storedToken = localStorage.getItem('access_token');
+if (storedToken) setAuthToken(storedToken);
+
+// Auto-refresh on 401
+api.interceptors.response.use(
+  (res) => res,
+  async (error) => {
+    const original = error.config;
+    if (error.response?.status === 401 && !original._retry) {
+      original._retry = true;
+      const refreshToken = localStorage.getItem('refresh_token');
+      if (refreshToken) {
+        try {
+          const res = await axios.post(`${API_BASE_URL}/auth/refresh`, {}, {
+            headers: { Authorization: `Bearer ${refreshToken}` },
+          });
+          const newToken = res.data.access_token;
+          localStorage.setItem('access_token', newToken);
+          setAuthToken(newToken);
+          original.headers['Authorization'] = `Bearer ${newToken}`;
+          return api(original);
+        } catch {
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+          setAuthToken(null);
+          window.location.reload();
+        }
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 // API methods
 export const apiService = {
   // Configuration
@@ -51,6 +95,10 @@ export const apiService = {
 
   // Testing
   sendTestMessage: (message) => api.post('/send-test-message', { message }),
+
+  // Service management
+  getServicesStatus: () => api.get('/services/status'),
+  restartService: (serviceName) => api.post(`/services/restart/${serviceName}`),
 };
 
 export default apiService;

@@ -1,5 +1,5 @@
 {
-  "api_key": "sk-ZJ4Zyrn6ealoTvQfrGFRHQ5Ln0hJUxEJcZfLmkbolGNYM3sw",
-  "base_url": "https://hone.vvvv.ee",
+  "api_key": "",
+  "base_url": "https://api.anthropic.com",
   "model": "claude-sonnet-4-5-20250929"
 }

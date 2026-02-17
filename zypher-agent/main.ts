@@ -165,6 +165,57 @@ User message: ${message}`;
 
   console.log(`🚀 Zypher Agent HTTP server starting on port ${port}...`);
   await Deno.serve({ port }, handler);
+
+  // Register with RealChat gateway
+  await registerWithGateway(port);
+}
+
+// Register with the RealChat universal agent gateway
+async function registerWithGateway(port: number) {
+  const gatewayUrl = Deno.env.get("REALCHAT_GATEWAY_URL") || "http://localhost:5001";
+
+  try {
+    const resp = await fetch(`${gatewayUrl}/api/agents/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "zypher",
+        url: `http://localhost:${port}`,
+        port: port,
+        description: "Zypher AI agent - WeChat messaging companion",
+        prefix: "[Zypher]",
+        capabilities: {
+          streaming: false,
+          conversation_history: true,
+          length_matching: true,
+          multi_language: false,
+        },
+        health_endpoint: "/health",
+        chat_endpoint: "/api/chat",
+      }),
+    });
+
+    const data = await resp.json();
+    if (data.success) {
+      console.log(`✅ Registered with RealChat gateway at ${gatewayUrl}`);
+    } else {
+      console.warn(`⚠️ Gateway registration: ${JSON.stringify(data)}`);
+    }
+  } catch (e) {
+    console.warn(`⚠️ Could not register with gateway (is it running?): ${e}`);
+    console.log("   Zypher will still work via legacy routing");
+  }
+}
+
+// Deregister on shutdown
+async function deregisterFromGateway() {
+  const gatewayUrl = Deno.env.get("REALCHAT_GATEWAY_URL") || "http://localhost:5001";
+  try {
+    await fetch(`${gatewayUrl}/api/agents/zypher`, { method: "DELETE" });
+    console.log("Deregistered from gateway");
+  } catch {
+    // Best effort
+  }
 }
 
 // Main initialization
@@ -257,6 +308,13 @@ CRITICAL RULES:
     );
 
     console.log("✅ Zypher Agent initialized successfully");
+
+    // Handle graceful shutdown
+    Deno.addSignalListener("SIGINT", async () => {
+      console.log("\nShutting down Zypher...");
+      await deregisterFromGateway();
+      Deno.exit(0);
+    });
 
     // Start HTTP server (pass default model for reference)
     await startHttpServer(agent, defaultModel);

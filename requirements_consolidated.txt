@@ -27,8 +27,12 @@ Pillow>=11.0.0
 selenium==4.15.2
 webdriver-manager==4.0.1
 
-# Database (Optional - for persistence)
-# sqlalchemy==2.0.23
+# Authentication
+flask-jwt-extended==4.6.0
+bcrypt==4.1.2
+
+# Database
+sqlalchemy>=2.0.46
 
 # Testing
 pytest==7.4.3

@@ -67,6 +67,26 @@ docker-compose -f docker-compose.consolidated.yml up -d
 
 ---
 
+## 🧪 Testing Environment (Multi-Terminal Setup)
+
+Run each command in a separate terminal:
+
+```bash
+# Terminal 1 — Backend (Flask on :5001)
+cd /Users/test/Desktop/Hireal/RealChat && source venv/bin/activate && python app_consolidated.py
+
+# Terminal 2 — Frontend (Vite on :5173)
+cd /Users/test/Desktop/Hireal/RealChat/frontend && npm run dev
+
+# Terminal 3 — Zypher Agent (Deno on :8000)
+cd /Users/test/Desktop/Hireal/RealChat/zypher-agent && deno task dev
+
+# Terminal 4 — WeChat Bridge (Wechaty on :8080/8081)
+cd /Users/test/Desktop/Hireal/RealChat/wechat-bridge && npm start
+```
+
+---
+
 ## 📋 Prerequisites
 
 ### Required

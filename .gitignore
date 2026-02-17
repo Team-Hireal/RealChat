@@ -36,6 +36,9 @@ Thumbs.db
 *.sqlite
 *.sqlite3
 
+# Runtime
+.realchat.pids
+
 # Environment variables
 .env
 .env.local

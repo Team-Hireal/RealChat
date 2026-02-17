@@ -8,10 +8,12 @@ from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 import os
+import sys
 import json
 import logging
 import threading
 import time
+import subprocess
 import requests
 from pathlib import Path
 from dotenv import load_dotenv
@@ -24,6 +26,10 @@ from services.wechat_service import WeChatService
 from services.ai_service import AIService
 from modules.command_parser import CommandParser, CommandExecutor
 from utils.logging_config import ColoredFormatter, RateLimitedLogger, EndpointFilter
+from core.agent_registry import AgentRegistry, AgentStatus
+from core.auth import init_auth
+
+from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
 
 # Configure enhanced logging
 logging.setLoggerClass(RateLimitedLogger)
@@ -57,8 +63,35 @@ logger.info("=" * 60)
 # Initialize Flask app
 app = Flask(__name__, static_folder='frontend/dist', static_url_path='')
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
-CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*")
+
+# CORS — allow frontend origin in production
+allowed_origins = os.getenv('CORS_ORIGINS', '*')
+CORS(app, origins=allowed_origins.split(','))
+socketio = SocketIO(app, cors_allowed_origins=allowed_origins.split(',') if allowed_origins != '*' else '*')
+
+# Initialize authentication
+init_auth(app)
+
+# ── JWT protection for all /api/* routes ──
+PUBLIC_PREFIXES = (
+    '/api/auth/',       # login, signup, refresh
+    '/api/health',      # health check
+    '/api/agents/register',  # agent self-registration
+)
+
+@app.before_request
+def require_auth():
+    """Protect all /api/* routes except public ones."""
+    path = request.path
+    if not path.startswith('/api/'):
+        return  # static files, frontend — no auth
+    for prefix in PUBLIC_PREFIXES:
+        if path.startswith(prefix):
+            return  # public endpoint
+    try:
+        verify_jwt_in_request()
+    except Exception:
+        return jsonify({'error': 'Authentication required'}), 401
 
 # Initialize services
 wechat_config = {
@@ -84,6 +117,11 @@ ai_service = AIService(ai_config)
 
 # Initialize command executor
 command_executor = CommandExecutor(wechat_service)
+
+# Initialize universal agent registry
+agent_registry = AgentRegistry(health_check_interval=30)
+agent_registry.start_health_checks()
+logger.info("Universal Agent Registry initialized")
 
 # Global state
 agent_running = False
@@ -1137,90 +1175,208 @@ def update_ai_settings():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# ============================================================================
+# Universal Agent Registry API
+# ============================================================================
+
+@app.route('/api/agents/register', methods=['POST'])
+def register_agent():
+    """Register a new agent with the gateway."""
+    try:
+        data = request.json
+        if not data:
+            return jsonify({'success': False, 'error': 'Request body required'}), 400
+
+        agent = agent_registry.register(data)
+        logger.info(f"Agent registered: {agent.name} at {agent.url}")
+
+        socketio.emit('log', {
+            'type': 'success',
+            'message': f'🔌 Agent "{agent.name}" registered at {agent.url}',
+            'timestamp': time.time()
+        })
+        socketio.emit('agents_updated', {
+            'agents': [a.to_dict() for a in agent_registry.list_agents()]
+        })
+
+        return jsonify({
+            'success': True,
+            'agent': agent.to_dict(),
+            'message': f'Agent "{agent.name}" registered successfully'
+        })
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error registering agent: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/agents/<name>', methods=['DELETE'])
+def unregister_agent(name):
+    """Unregister an agent from the gateway."""
+    try:
+        if agent_registry.unregister(name):
+            socketio.emit('log', {
+                'type': 'info',
+                'message': f'🔌 Agent "{name}" unregistered',
+                'timestamp': time.time()
+            })
+            socketio.emit('agents_updated', {
+                'agents': [a.to_dict() for a in agent_registry.list_agents()]
+            })
+            return jsonify({'success': True, 'message': f'Agent "{name}" unregistered'})
+        else:
+            return jsonify({'success': False, 'error': f'Agent "{name}" not found'}), 404
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/agents', methods=['GET'])
+def list_agents():
+    """List all registered agents."""
+    include_offline = request.args.get('include_offline', 'true').lower() == 'true'
+    agents = agent_registry.list_agents(include_offline=include_offline)
+
+    # Always include built-in Claude agent
+    builtin = [{
+        'name': 'claude',
+        'status': 'online',
+        'description': 'Built-in Claude AI by Anthropic',
+        'prefix': '[Claude]',
+        'builtin': True,
+    }]
+
+    return jsonify({
+        'success': True,
+        'agents': builtin + [a.to_dict() for a in agents],
+        'count': len(agents) + 1
+    })
+
+
+@app.route('/api/agents/<name>/health', methods=['GET'])
+def agent_health(name):
+    """Check health of a specific agent."""
+    if name.lower() == 'claude':
+        return jsonify({'status': 'ok', 'service': 'claude', 'builtin': True})
+
+    health = agent_registry.check_agent_health(name)
+    return jsonify(health)
+
+
+def _send_agent_response_to_wechat(response_text: str, agent_name: str):
+    """Helper to send any agent's response back to WeChat."""
+    try:
+        current_chat = wechat_service.get_current_chat_name()
+        blocked_chats = ['File Transfer', 'Search', 'Photos and Videos',
+                        'Favorites', 'Official Accounts', 'Settings', 'Profile', 'Log Out',
+                        'Help', 'Moments']
+
+        if current_chat in blocked_chats:
+            logger.warning(f"Blocked sending to non-chat: {current_chat}")
+            return
+
+        if wechat_service.ocr_reader:
+            wechat_service.ocr_reader.mark_as_agent_message(response_text)
+
+        success = wechat_service.send_message(response_text, current_chat)
+
+        if success:
+            if wechat_service.ocr_reader:
+                wechat_service.ocr_reader.mark_as_agent_message(response_text)
+            socketio.emit('log', {
+                'type': 'success',
+                'message': f'🤖 Sent {agent_name} response to {current_chat or "WeChat"}',
+                'timestamp': time.time()
+            })
+        else:
+            logger.warning(f"Failed to send {agent_name} response to WeChat")
+    except Exception as e:
+        logger.error(f"Error sending {agent_name} response to WeChat: {e}")
+
+
 @app.route('/api/chat', methods=['POST'])
-def chat_with_ai():
+def chat():
     """Chat with Claude AI"""
     try:
         data = request.json
         message = data.get('message', '')
+        images = data.get('images', [])  # [{data: base64, type: 'image/png'}]
         model = data.get('model', 'claude')
         history = data.get('history', [])
         send_to_wechat = data.get('send_to_wechat', True)  # Default: send to WeChat
 
-        if not message:
-            return jsonify({'success': False, 'error': 'Message is required'}), 400
+        if not message and not images:
+            return jsonify({'success': False, 'error': 'Message or images required'}), 400
 
-        # Route to OpenClaw Agent if selected
-        if model == 'openclaw':
-            # TODO: Implement OpenClaw connection
-            logger.info("OpenClaw selected - connection not yet implemented")
-            return jsonify({
-                'success': True,
-                'response': '[OpenClaw] OpenClaw integration coming soon! Currently in setup phase.',
-                'model': 'openclaw'
-            })
-
-        # Route to Zypher Agent if selected
-        if model == 'zypher':
-            try:
-                zypher_url = os.getenv('ZYPHER_URL', 'http://localhost:8000')
-                logger.info(f"Routing to Zypher Agent at {zypher_url}")
-
-                response = requests.post(
-                    f"{zypher_url}/api/chat",
-                    json={
-                        'message': message,
-                        'model': 'claude-sonnet-4-5-20250929',
-                        'history': history
-                    },
-                    timeout=10  # Reduced from 30 to 10 seconds
+        # --- Universal Agent Routing ---
+        # Check if the requested model is a registered external agent
+        if model != 'claude':
+            registered_agent = agent_registry.get_agent(model)
+            if registered_agent:
+                logger.info(f"Routing to registered agent '{model}' via universal protocol")
+                result = agent_registry.route_message(
+                    model, message, history=history,
+                    context={'send_to_wechat': send_to_wechat}
                 )
 
-                if response.status_code == 200:
-                    zypher_data = response.json()
-                    if zypher_data.get('success'):
-                        response_text = zypher_data.get('response', '')
+                if result.get('success'):
+                    response_text = result.get('response', '')
 
-                        # Send response back to WeChat if enabled
-                        if send_to_wechat:
-                            logger.info("Attempting to send Zypher response back to WeChat...")
-                            try:
-                                current_chat = wechat_service.get_current_chat_name()
-                                blocked_chats = ['File Transfer', 'Search', 'Photos and Videos',
-                                                'Favorites', 'Official Accounts', 'Settings', 'Profile', 'Log Out',
-                                                'Help', 'Moments']
+                    # Send response back to WeChat if enabled
+                    if send_to_wechat:
+                        _send_agent_response_to_wechat(response_text, model)
 
-                                if current_chat not in blocked_chats:
-                                    if wechat_service.ocr_reader:
-                                        wechat_service.ocr_reader.mark_as_agent_message(response_text)
-
-                                    success = wechat_service.send_message(response_text, current_chat)
-
-                                    if success and wechat_service.ocr_reader:
-                                        wechat_service.ocr_reader.mark_as_agent_message(response_text)
-                                        socketio.emit('log', {
-                                            'type': 'success',
-                                            'message': f'🤖 Sent Zypher response to {current_chat or "WeChat"}',
-                                            'timestamp': time.time()
-                                        })
-                            except Exception as send_error:
-                                logger.error(f"Error sending Zypher response to WeChat: {send_error}")
-
-                        return jsonify({
-                            'success': True,
-                            'response': response_text,
-                            'model': 'zypher'
-                        })
+                    return jsonify({
+                        'success': True,
+                        'response': response_text,
+                        'model': model,
+                        'agent': model
+                    })
                 else:
-                    logger.warning(f'Zypher Agent returned status {response.status_code}, falling back to Claude')
-                    # Fall through to Claude backend below
+                    # Agent failed — fall through to Claude
+                    logger.warning(f"Agent '{model}' failed: {result.get('error')}, falling back to Claude")
 
-            except requests.exceptions.ConnectionError:
-                logger.warning('Zypher Agent service is not running, falling back to Claude')
-                # Fall through to Claude backend below
-            except Exception as e:
-                logger.error(f"Error connecting to Zypher Agent: {e}, falling back to Claude")
-                # Fall through to Claude backend below
+            elif model == 'zypher':
+                # Legacy Zypher routing (before it registers itself)
+                try:
+                    zypher_url = os.getenv('ZYPHER_URL', 'http://localhost:8000')
+                    logger.info(f"Routing to Zypher Agent (legacy) at {zypher_url}")
+
+                    response = requests.post(
+                        f"{zypher_url}/api/chat",
+                        json={
+                            'message': message,
+                            'model': 'claude-sonnet-4-5-20250929',
+                            'history': history
+                        },
+                        timeout=10
+                    )
+
+                    if response.status_code == 200:
+                        zypher_data = response.json()
+                        if zypher_data.get('success'):
+                            response_text = zypher_data.get('response', '')
+
+                            if send_to_wechat:
+                                _send_agent_response_to_wechat(response_text, 'zypher')
+
+                            return jsonify({
+                                'success': True,
+                                'response': response_text,
+                                'model': 'zypher'
+                            })
+                    else:
+                        logger.warning(f'Zypher returned status {response.status_code}, falling back to Claude')
+
+                except requests.exceptions.ConnectionError:
+                    logger.warning('Zypher service not running, falling back to Claude')
+                except Exception as e:
+                    logger.error(f"Error connecting to Zypher: {e}, falling back to Claude")
+
+            else:
+                # Unknown agent — not registered, not built-in
+                logger.warning(f"Unknown agent '{model}', falling back to Claude")
+
 
         # Load AI settings
         ai_settings = load_ai_settings()
@@ -1337,52 +1493,7 @@ def chat_with_ai():
 
             # Send response back to WeChat if enabled
             if send_to_wechat:
-                logger.info("Attempting to send AI response back to WeChat...")
-                try:
-                    # Get current chat name (for logging only - send_message pastes into current window regardless)
-                    current_chat = wechat_service.get_current_chat_name()
-                    logger.info(f"Current chat detected: {current_chat}")
-
-                    # Only block sending for known non-chat UI elements
-                    blocked_chats = ['File Transfer', 'Search', 'Photos and Videos',
-                                    'Favorites', 'Official Accounts', 'Settings', 'Profile', 'Log Out',
-                                    'Help', 'Moments']
-
-                    if current_chat in blocked_chats:
-                        logger.warning(f"Blocked sending to non-chat: {current_chat}")
-                        socketio.emit('log', {
-                            'type': 'warning',
-                            'message': f'⚠️ Cannot send to "{current_chat}" - please open a real chat',
-                            'timestamp': time.time()
-                        })
-                    else:
-                        # Mark as agent message BEFORE sending to prevent OCR from detecting it
-                        if wechat_service.ocr_reader:
-                            wechat_service.ocr_reader.mark_as_agent_message(response_text)
-
-                        # Send message to WeChat (pastes into current window)
-                        success = wechat_service.send_message(response_text, current_chat)
-
-                        if success:
-                            logger.info(f"✅ Sent AI response to WeChat: {current_chat}")
-                            if wechat_service.ocr_reader:
-                                wechat_service.ocr_reader.mark_as_agent_message(response_text)
-                            socketio.emit('log', {
-                                'type': 'success',
-                                'message': f'🤖 Sent AI response to {current_chat or "WeChat"}',
-                                'timestamp': time.time()
-                            })
-                        else:
-                            logger.warning("Failed to send AI response to WeChat")
-                            socketio.emit('log', {
-                                'type': 'warning',
-                                'message': '⚠️ Failed to send AI response to WeChat',
-                                'timestamp': time.time()
-                            })
-                except Exception as send_error:
-                    logger.error(f"Error sending to WeChat: {send_error}")
-                    import traceback
-                    logger.error(traceback.format_exc())
+                _send_agent_response_to_wechat(response_text, 'claude')
 
             return jsonify({
                 'success': True,
@@ -1840,11 +1951,115 @@ current_chat_thread.start()
 
 
 # ============================================================================
+# Service Restart API
+# ============================================================================
+
+SERVICE_COMMANDS = {
+    'frontend': {
+        'dir': os.path.join(os.path.dirname(os.path.abspath(__file__)), 'frontend'),
+        'cmd': ['npm', 'run', 'dev'],
+        'port': 5173,
+    },
+    'backend': {
+        'dir': os.path.dirname(os.path.abspath(__file__)),
+        'port': 5001,
+    },
+    'zypher': {
+        'dir': os.path.join(os.path.dirname(os.path.abspath(__file__)), 'zypher-agent'),
+        'cmd': ['deno', 'task', 'dev'],
+        'port': 8000,
+    },
+    'bridge': {
+        'dir': os.path.join(os.path.dirname(os.path.abspath(__file__)), 'wechat-bridge'),
+        'cmd': ['npm', 'start'],
+        'port': 8080,
+    },
+}
+
+def _kill_port(port):
+    """Kill process listening on a given port."""
+    try:
+        result = subprocess.run(
+            ['lsof', '-ti', f':{port}'],
+            capture_output=True, text=True, timeout=5
+        )
+        pids = result.stdout.strip().split('\n')
+        for pid in pids:
+            if pid:
+                subprocess.run(['kill', '-9', pid], timeout=5)
+        return True
+    except Exception as e:
+        logger.error(f"Error killing port {port}: {e}")
+        return False
+
+def _start_service(name):
+    """Start a service in the background."""
+    svc = SERVICE_COMMANDS.get(name)
+    if not svc or 'cmd' not in svc:
+        return False
+    try:
+        subprocess.Popen(
+            svc['cmd'],
+            cwd=svc['dir'],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        return True
+    except Exception as e:
+        logger.error(f"Error starting {name}: {e}")
+        return False
+
+@app.route('/api/services/status', methods=['GET'])
+def services_status():
+    """Check which services are listening on their ports."""
+    statuses = {}
+    for name, svc in SERVICE_COMMANDS.items():
+        port = svc['port']
+        try:
+            result = subprocess.run(
+                ['lsof', '-ti', f':{port}'],
+                capture_output=True, text=True, timeout=3
+            )
+            statuses[name] = bool(result.stdout.strip())
+        except Exception:
+            statuses[name] = False
+    return jsonify(statuses)
+
+@app.route('/api/services/restart/<service_name>', methods=['POST'])
+def restart_service(service_name):
+    """Restart a specific service by name."""
+    if service_name not in SERVICE_COMMANDS:
+        return jsonify({'error': f'Unknown service: {service_name}'}), 400
+
+    svc = SERVICE_COMMANDS[service_name]
+    port = svc['port']
+
+    if service_name == 'backend':
+        def _restart_self():
+            time.sleep(1)
+            _kill_port(port)
+            python = sys.executable
+            os.execv(python, [python] + sys.argv)
+        threading.Thread(target=_restart_self, daemon=True).start()
+        return jsonify({'status': 'restarting', 'service': service_name})
+
+    _kill_port(port)
+    time.sleep(0.5)
+
+    started = _start_service(service_name)
+    if started:
+        return jsonify({'status': 'restarted', 'service': service_name})
+    else:
+        return jsonify({'error': f'Failed to start {service_name}'}), 500
+
+
+# ============================================================================
 # Main
 # ============================================================================
 
 if __name__ == '__main__':
-    port = int(os.getenv('FLASK_PORT', '5001'))
+    port = int(os.getenv('PORT', os.getenv('FLASK_PORT', '5001')))
     debug = os.getenv('FLASK_ENV') == 'development'
 
     logger.info("=" * 60)
@@ -1854,6 +2069,8 @@ if __name__ == '__main__':
     logger.info(f"Debug: {debug}")
     logger.info(f"WeChat: {'Running' if wechat_service.is_wechat_running() else 'Not running'}")
     logger.info(f"AI Model: {ai_service.model}")
+    logger.info(f"Agent Registry: Active (health checks every 30s)")
+    logger.info(f"Agent API: http://localhost:{port}/api/agents")
     logger.info("=" * 60)
 
     # Arrange WeChat and browser windows side by side

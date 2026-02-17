@@ -1,70 +1,113 @@
 .header {
   background: var(--ceramic-bg);
   color: var(--text-primary);
-  padding: 30px;
+  padding: 16px 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid var(--glass-border);
+  gap: 16px;
 }
 
 .logo {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .logo-icon {
-  font-size: 40px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
 }
 
 .logo h1 {
-  font-size: 32px;
+  font-size: 22px;
   font-weight: 700;
   margin: 0;
+  white-space: nowrap;
 }
 
-.status-badges {
+/* Service controls bar */
+.service-controls {
   display: flex;
-  gap: 15px;
-  align-items: center;
-}
-
-.badge {
-  padding: 10px 20px;
-  border-radius: 20px;
-  font-weight: 600;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
   gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
-.badge.online {
-  background: #07C160;
-  color: white;
+.service-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 20px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  font-size: 13px;
+  font-weight: 600;
 }
 
-.badge.offline {
-  background: var(--glass-bg-light);
-  color: var(--text-secondary);
-}
-
-.status-dot {
-  width: 10px;
-  height: 10px;
+.svc-dot {
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: white;
-  animation: pulse 2s infinite;
+  flex-shrink: 0;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+.svc-dot.on {
+  background: #07C160;
+  box-shadow: 0 0 6px rgba(7, 193, 96, 0.5);
+}
+
+.svc-dot.off {
+  background: #999;
+}
+
+.svc-label {
+  color: var(--text-primary);
+}
+
+.svc-restart {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 15px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.svc-restart:hover {
+  background: var(--glass-bg-light);
+  color: var(--wechat-green, #07C160);
+}
+
+.svc-restart:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.svc-restart.spinning {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .theme-toggle {
-  padding: 10px 15px;
+  padding: 8px 12px;
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
@@ -72,6 +115,7 @@
   font-size: 18px;
   transition: var(--transition-fast);
   box-shadow: var(--glass-shadow);
+  flex-shrink: 0;
 }
 
 .theme-toggle:hover {
@@ -79,4 +123,21 @@
   border-color: var(--wechat-green);
   box-shadow: var(--glass-shadow-hover);
   transform: scale(1.05);
+}
+
+.logout-btn {
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.logout-btn:hover {
+  border-color: #ef4444;
+  color: #f87171;
 }

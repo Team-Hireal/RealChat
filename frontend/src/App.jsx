@@ -1,10 +1,12 @@
 import { useEffect } from 'react';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ACTIONS } from './context/AppReducer';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import MainPanel from './components/MainPanel';
+import AuthPage from './components/AuthPage';
 import useConfig from './hooks/useConfig';
 import usePolling from './hooks/usePolling';
 import apiService from './services/api';
@@ -27,90 +29,65 @@ function AppContent() {
     }
 
     // Connect to Socket.IO for real-time updates
-    const socket = io('http://localhost:5001');
+    const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5001';
+    const socket = io(SOCKET_URL);
 
     socket.on('connect', () => {
-      console.log('✅ Connected to Flask Socket.IO');
+      console.log('Connected to Flask Socket.IO');
       dispatch({ type: ACTIONS.SET_SOCKET_CONNECTED, payload: true });
     });
 
     socket.on('disconnect', () => {
-      console.log('❌ Disconnected from Flask Socket.IO');
       dispatch({ type: ACTIONS.SET_SOCKET_CONNECTED, payload: false });
     });
 
-    // Listen for current chat updates
     socket.on('current_chat_update', (data) => {
-      console.log('📱 Current chat update:', data);
-      dispatch({
-        type: ACTIONS.SET_CURRENT_CHAT,
-        payload: data
-      });
+      dispatch({ type: ACTIONS.SET_CURRENT_CHAT, payload: data });
     });
 
     socket.on('bridge_message', (data) => {
-      console.log('📨 Bridge message:', data);
-
-      // Play notification sound for new message
       soundService.playMessage();
-
       dispatch({
         type: ACTIONS.ADD_LOG,
         payload: {
           type: 'info',
-          message: `📨 Bridge: ${data.sender} in ${data.chat}: ${data.text.substring(0, 50)}...`,
+          message: `Bridge: ${data.sender} in ${data.chat}: ${data.text.substring(0, 50)}...`,
           timestamp: Date.now()
         }
       });
     });
 
     socket.on('ai_response', (data) => {
-      console.log('🤖 AI response:', data);
-
-      // Play completion sound when AI finishes responding
       soundService.playComplete();
-
       dispatch({
         type: ACTIONS.ADD_LOG,
-        payload: {
-          type: 'success',
-          message: `🤖 AI responded in ${data.chat}`,
-          timestamp: Date.now()
-        }
+        payload: { type: 'success', message: `AI responded in ${data.chat}`, timestamp: Date.now() }
       });
     });
 
     socket.on('log', (data) => {
       dispatch({
         type: ACTIONS.ADD_LOG,
-        payload: {
-          type: data.type || 'info',
-          message: data.message,
-          timestamp: data.timestamp || Date.now()
-        }
+        payload: { type: data.type || 'info', message: data.message, timestamp: data.timestamp || Date.now() }
       });
     });
 
     socket.on('message_sent', (data) => {
-      // Play success sound when message is sent
       soundService.playSuccess();
-
       dispatch({
         type: ACTIONS.ADD_LOG,
         payload: {
           type: 'success',
-          message: `✅ Message sent to ${data.chat}${data.via ? ` via ${data.via}` : ''}`,
+          message: `Message sent to ${data.chat}${data.via ? ` via ${data.via}` : ''}`,
           timestamp: Date.now()
         }
       });
     });
 
-    return () => {
-      socket.disconnect();
-    };
+    return () => { socket.disconnect(); };
   }, []);
 
-  // Poll for status - Every 1 second for consistent responsiveness
+  // Poll for status
   usePolling(async () => {
     try {
       const statusRes = await apiService.getStatus();
@@ -120,17 +97,14 @@ function AppContent() {
     }
   }, 1000, true);
 
-  // Poll for current chat - Every 1 second for consistent responsiveness
+  // Poll for current chat
   usePolling(async () => {
     try {
       const chatRes = await apiService.getCurrentChat();
       if (chatRes.data.success) {
         dispatch({
           type: ACTIONS.SET_CURRENT_CHAT,
-          payload: {
-            chat: chatRes.data.chat || 'No active chat',
-            detected: chatRes.data.detected || false
-          }
+          payload: { chat: chatRes.data.chat || 'No active chat', detected: chatRes.data.detected || false }
         });
       }
     } catch (error) {
@@ -151,12 +125,32 @@ function AppContent() {
   );
 }
 
+function AuthGate() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: 'var(--text-secondary)' }}>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!user) return <AuthPage />;
+
+  return (
+    <AppProvider>
+      <AppContent />
+    </AppProvider>
+  );
+}
+
 function App() {
   return (
     <ThemeProvider>
-      <AppProvider>
-        <AppContent />
-      </AppProvider>
+      <AuthProvider>
+        <AuthGate />
+      </AuthProvider>
     </ThemeProvider>
   );
 }
