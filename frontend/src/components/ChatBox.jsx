@@ -4,10 +4,17 @@ import { ACTIONS } from '../context/AppReducer';
 import io from 'socket.io-client';
 import './ChatBox.css';
 
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5050';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5050';
+
 const ChatBox = () => {
   const { state, dispatch } = useAppContext();
   const { chatSessions, activeChat, mode } = state;
   const isDev = mode === 'developer';
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('access_token');
+    return token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+  };
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState('zypher');
@@ -28,9 +35,9 @@ const ChatBox = () => {
     setIsLoading(true);
     try {
       // Read current session messages at call time via a ref-based approach
-      const response = await fetch('http://localhost:5050/api/chat', {
+      const response = await fetch(`${API_BASE}/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           message: messageText,
           model: currentModel,
@@ -54,7 +61,7 @@ const ChatBox = () => {
   useEffect(() => {
     if (socketRef.current?.connected) return;
 
-    socketRef.current = io('http://localhost:5050', { reconnection: false, forceNew: true });
+    socketRef.current = io(SOCKET_URL, { reconnection: false, forceNew: true });
 
     socketRef.current.on('connect', () => console.log('[ChatBox] Socket connected'));
 
@@ -111,9 +118,9 @@ const ChatBox = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5050/api/chat', {
+      const response = await fetch(`${API_BASE}/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ message: msgText, model: selectedModel, history: [...messages, userMessage] })
       });
       const data = await response.json();

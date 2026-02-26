@@ -26,9 +26,12 @@ const RealChat = () => {
     scrollToBottom();
   }, [logs]);
 
-  // Initialize socket connection
+  const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5050';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5050';
+
+// Initialize socket connection
   useEffect(() => {
-    socketRef.current = io('http://localhost:5050');
+    socketRef.current = io(SOCKET_URL);
 
     socketRef.current.on('connect', () => {
       addLog('Connected to server', 'success');
@@ -86,13 +89,17 @@ const RealChat = () => {
 
   const apiCall = async (endpoint, method = 'GET', body = null) => {
     try {
+      const token = localStorage.getItem('access_token');
       const options = {
         method,
-        headers: { 'Content-Type': 'application/json' }
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
       };
       if (body) options.body = JSON.stringify(body);
 
-      const response = await fetch(`http://localhost:5050${endpoint}`, options);
+      const response = await fetch(`${API_BASE}${endpoint}`, options);
       const data = await response.json();
       return data;
     } catch (error) {

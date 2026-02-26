@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import './OCRPreview.css';
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5050';
+
 const OCRPreview = () => {
   const [imageUrl, setImageUrl] = useState('');
   const [error, setError] = useState(false);
@@ -36,7 +38,7 @@ const OCRPreview = () => {
           </div>
         ) : (
           <img
-            src={`http://localhost:5000/api/wechat/ocr-debug-image?t=${lastUpdate}`}
+            src={`${API_BASE}/api/wechat/ocr-debug-image?t=${lastUpdate}`}
             alt="OCR Debug Preview"
             className="ocr-preview-image"
             onError={handleImageError}

@@ -1,6 +1,13 @@
 import { useState, useEffect } from 'react';
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5050';
+
 const AISettings = () => {
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('access_token');
+    return token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+  };
+
   const [settings, setSettings] = useState({
     api_key: '',
     base_url: 'https://api.anthropic.com',
@@ -23,7 +30,9 @@ const AISettings = () => {
 
   const loadSettings = async () => {
     try {
-      const response = await fetch('http://localhost:5050/api/ai-settings');
+      const response = await fetch(`${API_BASE}/api/ai-settings`, {
+        headers: getAuthHeaders()
+      });
       const data = await response.json();
       if (data.success) {
         setSettings(data.settings);
@@ -45,11 +54,9 @@ const AISettings = () => {
     setMessage({ text: '', type: '' });
 
     try {
-      const response = await fetch('http://localhost:5050/api/ai-settings', {
+      const response = await fetch(`${API_BASE}/api/ai-settings`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(settings)
       });
 
