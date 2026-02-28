@@ -2,12 +2,14 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Terminal, Download, Play, CheckCircle, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Terminal, Download, Play, CheckCircle, AlertCircle, Apple } from 'lucide-react';
 import { useLanguage } from '@/components/LanguageProvider';
+
+const GITHUB_RELEASE_URL = 'https://github.com/Team-Hireal/RealChat/releases/download/v1.0.0/RealChat-1.0.0-arm64.dmg';
 
 export default function ApplicationPage() {
   const { t } = useLanguage();
-  const [activeTab, setActiveTab] = useState<'quick' | 'docker' | 'manual'>('quick');
+  const [activeTab, setActiveTab] = useState<'download' | 'quick' | 'docker' | 'manual'>('download');
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
@@ -37,6 +39,16 @@ export default function ApplicationPage() {
 
         {/* Installation Method Tabs */}
         <div className="flex justify-center gap-4 mb-12">
+          <button
+            onClick={() => setActiveTab('download')}
+            className={`px-6 py-3 rounded-lg font-medium transition-all ${
+              activeTab === 'download'
+                ? 'bg-[#07c160] text-white shadow-lg'
+                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+            }`}
+          >
+            {t('application.downloadApp') || 'Download App'}
+          </button>
           <button
             onClick={() => setActiveTab('quick')}
             className={`px-6 py-3 rounded-lg font-medium transition-all ${
@@ -71,6 +83,92 @@ export default function ApplicationPage() {
 
         {/* Content Sections */}
         <div className="max-w-4xl mx-auto">
+          {/* Download App */}
+          {activeTab === 'download' && (
+            <div className="space-y-8 animate-fade-in">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg border border-gray-200 dark:border-gray-700">
+                <h2 className="text-3xl font-bold mb-6 text-gray-900 dark:text-white flex items-center gap-3">
+                  <Apple className="w-8 h-8 text-[#07c160]" />
+                  Download RealChat for macOS
+                </h2>
+
+                <div className="space-y-6">
+                  <div className="flex gap-4">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#07c160] text-white flex items-center justify-center font-bold">
+                      1
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">Download the DMG</h3>
+                      <a
+                        href={GITHUB_RELEASE_URL}
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-[#07c160] hover:bg-[#06ad56] text-white rounded-lg font-medium transition-colors"
+                      >
+                        <Download className="w-5 h-5" />
+                        Download RealChat-1.0.0-arm64.dmg
+                      </a>
+                      <p className="mt-3 text-gray-600 dark:text-gray-400">
+                        File size: ~122 MB (Apple Silicon)
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-4">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#07c160] text-white flex items-center justify-center font-bold">
+                      2
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">Install the App</h3>
+                      <ol className="list-decimal list-inside text-gray-600 dark:text-gray-400 space-y-2">
+                        <li>Open the downloaded DMG file</li>
+                        <li>Drag "RealChat" to your Applications folder</li>
+                        <li>Launch RealChat from Applications</li>
+                      </ol>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-4">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#07c160] text-white flex items-center justify-center font-bold">
+                      3
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">Grant Accessibility Permissions</h3>
+                      <p className="text-gray-600 dark:text-gray-400 mb-3">
+                        On first launch, you'll be prompted to grant accessibility permissions. This is required for RealChat to detect WeChat messages.
+                      </p>
+                      <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4 border border-yellow-200 dark:border-yellow-800">
+                        <p className="text-yellow-800 dark:text-yellow-200 text-sm">
+                          <strong>Note:</strong> Go to System Settings → Privacy & Security → Accessibility to enable manually if prompted doesn't appear.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* System Requirements */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-2xl p-6 border border-blue-200 dark:border-blue-800">
+                <h3 className="text-lg font-semibold mb-4 text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5" />
+                  System Requirements
+                </h3>
+                <ul className="space-y-2 text-blue-800 dark:text-blue-200">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4" />
+                    macOS 12.0 or later (Monterey or newer)
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4" />
+                    Apple Silicon (M1/M2/M3) Mac
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4" />
+                    WeChat for Mac installed
+                  </li>
+                </ul>
+              </div>
+            </div>
+          )}
+
           {/* Quick Start */}
           {activeTab === 'quick' && (
             <div className="space-y-8 animate-fade-in">
