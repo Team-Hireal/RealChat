@@ -1,5 +1,5 @@
 {
-  "api_key": "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",
+  "api_key": "",
   "base_url": "https://api.anthropic.com",
   "model": "claude-sonnet-4-5-20250929"
 }
