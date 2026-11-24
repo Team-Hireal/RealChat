@@ -1,0 +1,14 @@
+# RealChat (真聊)
+
+> RealChat (真聊) is an AI assistant for WeChat: smart triage, a reply queue, auto-replies with approval, contact memory and a daily brief, without leaving WeChat.
+
+RealChat runs as a desktop assistant alongside WeChat. You control it by chatting with yourself in WeChat (the File Transfer chat acts as a command console). Features include a "what did I miss?" summary of important messages, a reply queue with pinning and reminders, AI-drafted replies that you approve with one tap (or auto-send for trusted contacts), per-contact memory and notes, and a daily brief. It offers 12 workflows, including triage, scheduled messages, message forwarding, urgent-message alerts, group-chat filtering and spam/noise filtering. It uses a hybrid AI design: sensitive data is processed locally on your device, cloud AI handles non-sensitive tasks. The site is in Chinese with an English toggle. The macOS app is a DMG for Apple Silicon Macs (macOS 12 or later, WeChat for Mac required); Docker and manual install options are also documented.
+
+## Pages
+- [Home](https://realchat.work/): product overview, core features, workflows, how to get started and the privacy-first hybrid AI architecture
+- [Get started / Download](https://realchat.work/application): download and install instructions for macOS, Docker and manual setup, with system requirements
+
+## About
+- [Made by Simon Tian](https://www.hisimon.pro): engineer and founder who builds AI products, apps and games
+- [More apps by Simon Tian](https://www.hisimon.pro/projects)
+- [Source code](https://github.com/Team-Hireal/RealChat)
